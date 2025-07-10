@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Server, 
@@ -8,7 +9,9 @@ import {
   User, 
   HelpCircle, 
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  Settings,
+  Code
 } from "lucide-react";
 
 interface SidebarProps {
@@ -17,15 +20,19 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: Server, label: "Servers", active: false },
-  { icon: ShoppingCart, label: "Orders", active: false },
-  { icon: Users, label: "Users", active: false },
-  { icon: User, label: "Profile", active: false },
-  { icon: HelpCircle, label: "Support", active: false },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: Server, label: "Servers", path: "/servers" },
+  { icon: ShoppingCart, label: "Orders", path: "/orders" },
+  { icon: Users, label: "Users", path: "/users" },
+  { icon: User, label: "Profile", path: "/profile" },
+  { icon: HelpCircle, label: "Support", path: "/support" },
+  { icon: Settings, label: "Admin", path: "/admin" },
+  { icon: Code, label: "API", path: "/api" },
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+  const location = useLocation();
+
   return (
     <div className={`fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border transition-all duration-300 z-50 ${collapsed ? 'w-16' : 'w-64'}`}>
       {/* Header */}
@@ -54,20 +61,22 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       <nav className="mt-4 px-2">
         {menuItems.map((item, index) => {
           const Icon = item.icon;
+          const isActive = location.pathname === item.path;
           return (
-            <button
+            <Link
               key={index}
+              to={item.path}
               className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl mb-1 transition-all duration-200 group ${
-                item.active
+                isActive
                   ? 'bg-[hsl(var(--forpsi-cyan))] text-[hsl(var(--forpsi-charcoal))]'
                   : 'text-sidebar-foreground hover:bg-sidebar-accent'
               }`}
             >
-              <Icon className={`w-5 h-5 ${item.active ? 'text-[hsl(var(--forpsi-charcoal))]' : 'text-sidebar-foreground'}`} />
+              <Icon className={`w-5 h-5 ${isActive ? 'text-[hsl(var(--forpsi-charcoal))]' : 'text-sidebar-foreground'}`} />
               {!collapsed && (
                 <span className="font-medium">{item.label}</span>
               )}
-            </button>
+            </Link>
           );
         })}
       </nav>

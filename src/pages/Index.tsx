@@ -1,21 +1,12 @@
 
-import { useState } from "react";
-import { Sidebar } from "@/components/Sidebar";
+import { Layout } from "@/components/Layout";
 import { DashboardContent } from "@/components/DashboardContent";
 
 const Index = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex w-full">
-      <Sidebar 
-        collapsed={sidebarCollapsed} 
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
-      />
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
-        <DashboardContent />
-      </main>
-    </div>
+    <Layout>
+      <DashboardContent />
+    </Layout>
   );
 };
 
