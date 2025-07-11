@@ -1,158 +1,259 @@
 
+import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { Code, Key, Copy, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { Code, Key, Copy, Eye, EyeOff, Plus } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "@/components/AuthModal";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const Api = () => {
-  const [showApiKey, setShowApiKey] = useState(false);
-  const apiKey = "fp_live_1234567890abcdef1234567890abcdef";
+  const { user, userProfile } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState<{[key: string]: boolean}>({});
+  const { toast } = useToast();
 
-  const endpoints = [
-    { method: "GET", path: "/api/servers", description: "List all servers" },
-    { method: "POST", path: "/api/servers", description: "Create a new server" },
-    { method: "GET", path: "/api/servers/{id}", description: "Get server details" },
-    { method: "PUT", path: "/api/servers/{id}", description: "Update server" },
-    { method: "DELETE", path: "/api/servers/{id}", description: "Delete server" },
-    { method: "GET", path: "/api/users", description: "List all users" },
-    { method: "POST", path: "/api/users", description: "Create a new user" },
-    { method: "GET", path: "/api/orders", description: "List all orders" },
-  ];
+  const { data: apiKeys, isLoading } = useQuery({
+    queryKey: ['api-keys'],
+    queryFn: async () => {
+      if (!user || userProfile?.role !== 'admin') return [];
+      
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const getMethodColor = (method: string) => {
-    switch (method) {
-      case 'GET': return 'text-green-400 bg-green-400/10';
-      case 'POST': return 'text-blue-400 bg-blue-400/10';  
-      case 'PUT': return 'text-yellow-400 bg-yellow-400/10';
-      case 'DELETE': return 'text-red-400 bg-red-400/10';
-      default: return 'text-gray-400 bg-gray-400/10';
-    }
+      if (error) {
+        console.error('Error fetching API keys:', error);
+        return [];
+      }
+      return data;
+    },
+    enabled: !!user && userProfile?.role === 'admin',
+  });
+
+  const toggleShowKey = (keyId: string) => {
+    setShowApiKeys(prev => ({
+      ...prev,
+      [keyId]: !prev[keyId]
+    }));
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "API key copied to clipboard.",
+    });
   };
+
+  useEffect(() => {
+    if (!user) {
+      setShowAuthModal(true);
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <>
+        <Layout>
+          <div className="p-6 flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
+              <p className="text-muted-foreground mb-4">Please sign in to access the API console.</p>
+              <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
+            </div>
+          </div>
+        </Layout>
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      </>
+    );
+  }
+
+  if (userProfile?.role !== 'admin') {
+    return (
+      <Layout>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Key className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-4">Admin Access Required</h2>
+            <p className="text-muted-foreground">Only administrators can access the API console.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">API Management</h1>
-          <p className="text-muted-foreground mt-1">Manage API keys and explore endpoints</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">API Console</h1>
+            <p className="text-muted-foreground mt-1">Manage API keys and integrations</p>
+          </div>
+          <button className="forpsi-button-primary flex items-center space-x-2">
+            <Plus className="w-4 h-4" />
+            <span>Add API Key</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* API Keys */}
-          <div className="lg:col-span-1">
-            <div className="forpsi-card p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center space-x-2">
-                <Key className="w-5 h-5" />
-                <span>API Keys</span>
-              </h3>
+        {/* API Documentation */}
+        <div className="forpsi-card p-6">
+          <h3 className="text-xl font-semibold mb-4 flex items-center space-x-2">
+            <Code className="w-5 h-5" />
+            <span>API Documentation</span>
+          </h3>
+          <div className="prose max-w-none">
+            <div className="bg-muted p-4 rounded-lg mb-4">
+              <h4 className="text-lg font-medium mb-2">Base URL</h4>
+              <code className="text-[hsl(var(--forpsi-cyan))]">
+                {window.location.origin}/api/v1
+              </code>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Authentication</h4>
+                <p className="text-sm text-muted-foreground mb-2">Include your API key in the Authorization header:</p>
+                <code className="text-xs block bg-background p-2 rounded">
+                  Authorization: Bearer YOUR_API_KEY
+                </code>
+              </div>
               
-              <div className="space-y-4">
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-foreground">Production Key</span>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="p-1 hover:bg-sidebar-accent rounded transition-colors"
-                      >
-                        {showApiKey ? (
-                          <EyeOff className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => copyToClipboard(apiKey)}
-                        className="p-1 hover:bg-sidebar-accent rounded transition-colors"
-                      >
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </div>
-                  <code className="text-sm text-muted-foreground font-mono">
-                    {showApiKey ? apiKey : "fp_live_" + "•".repeat(32)}
-                  </code>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-xs text-muted-foreground">Active</span>
-                  </div>
-                </div>
-
-                <button className="w-full forpsi-button-primary">Generate New Key</button>
-                <button className="w-full bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-4 py-2 font-medium">
-                  Revoke Key
-                </button>
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Content Type</h4>
+                <p className="text-sm text-muted-foreground mb-2">All requests should include:</p>
+                <code className="text-xs block bg-background p-2 rounded">
+                  Content-Type: application/json
+                </code>
               </div>
             </div>
 
-            <div className="forpsi-card p-6 mt-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">API Stats</h3>
+            <div className="mt-6">
+              <h4 className="text-lg font-medium mb-3">Available Endpoints</h4>
               <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Requests Today</span>
-                  <span className="text-foreground font-medium">1,234</span>
+                <div className="border border-border rounded-lg p-3">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-mono">GET</span>
+                    <code>/servers</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">List all servers for the authenticated user</p>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Rate Limit</span>
-                  <span className="text-foreground font-medium">1000/hour</span>
+                
+                <div className="border border-border rounded-lg p-3">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-mono">POST</span>
+                    <code>/servers</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Create a new server instance</p>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Remaining</span>
-                  <span className="text-foreground font-medium">756</span>
+                
+                <div className="border border-border rounded-lg p-3">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-mono">GET</span>
+                    <code>/orders</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">List all orders for the authenticated user</p>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Success Rate</span>
-                  <span className="text-green-400 font-medium">99.2%</span>
+                
+                <div className="border border-border rounded-lg p-3">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-mono">POST</span>
+                    <code>/support</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Create a new support ticket</p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* API Endpoints */}
-          <div className="lg:col-span-2">
-            <div className="forpsi-card p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center space-x-2">
-                <Code className="w-5 h-5" />
-                <span>API Endpoints</span>
-              </h3>
-              
-              <div className="space-y-3">
-                {endpoints.map((endpoint, index) => (
-                  <div key={index} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getMethodColor(endpoint.method)}`}>
-                        {endpoint.method}
+        {/* API Keys Management */}
+        <div className="forpsi-card p-6">
+          <h3 className="text-xl font-semibold mb-4 flex items-center space-x-2">
+            <Key className="w-5 h-5" />
+            <span>External API Keys</span>
+          </h3>
+          
+          {isLoading ? (
+            <div className="text-center py-8">Loading API keys...</div>
+          ) : !apiKeys || apiKeys.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No API keys configured yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {apiKeys.map((key) => (
+                <div key={key.id} className="border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${key.is_active ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                      <h4 className="font-medium capitalize">{key.service}</h4>
+                      <span className="text-xs bg-muted px-2 py-1 rounded">
+                        {key.is_active ? 'Active' : 'Inactive'}
                       </span>
-                      <code className="text-sm font-mono text-foreground">{endpoint.path}</code>
                     </div>
-                    <p className="text-sm text-muted-foreground">{endpoint.description}</p>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => toggleShowKey(key.id)}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
+                        {showApiKeys[key.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => copyToClipboard(key.api_key)}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  
+                  <div className="bg-background p-3 rounded font-mono text-sm">
+                    {showApiKeys[key.id] 
+                      ? key.api_key 
+                      : '•'.repeat(32) + key.api_key.slice(-8)
+                    }
+                  </div>
+                  
+                  {key.description && (
+                    <p className="text-sm text-muted-foreground mt-2">{key.description}</p>
+                  )}
+                  
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Created: {new Date(key.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
 
-            <div className="forpsi-card p-6 mt-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Example Request</h3>
-              <div className="bg-[hsl(var(--forpsi-charcoal))] rounded-lg p-4 overflow-x-auto">
-                <pre className="text-sm text-green-400">
-{`curl -X GET \\
-  https://api.forpsi.com/v1/servers \\
-  -H "Authorization: Bearer ${showApiKey ? apiKey : 'YOUR_API_KEY'}" \\
-  -H "Content-Type: application/json"`}
-                </pre>
-              </div>
-              <button
-                onClick={() => copyToClipboard(`curl -X GET https://api.forpsi.com/v1/servers -H "Authorization: Bearer ${apiKey}" -H "Content-Type: application/json"`)}
-                className="mt-3 text-sm text-[hsl(var(--forpsi-cyan))] hover:text-[hsl(var(--forpsi-blue))] transition-colors flex items-center space-x-1"
-              >
-                <Copy className="w-4 h-4" />
-                <span>Copy to clipboard</span>
-              </button>
-            </div>
+        {/* Example Usage */}
+        <div className="forpsi-card p-6">
+          <h3 className="text-xl font-semibold mb-4">Example Usage</h3>
+          <div className="bg-background p-4 rounded-lg">
+            <pre className="text-sm overflow-x-auto">
+{`// Create a new server
+fetch('${window.location.origin}/api/v1/servers', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'My Game Server',
+    calloutId: 'preset-id',
+    location: 'Prague'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));`}
+            </pre>
           </div>
         </div>
       </div>

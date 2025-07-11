@@ -29,55 +29,77 @@ serve(async (req) => {
       })
     }
 
-    const { action, serverData, userId } = await req.json()
+    const { action, serverData, userId, calloutId } = await req.json()
 
-    // Get Pelican API key
-    const { data: apiKeyData } = await supabase
-      .from('api_keys')
-      .select('api_key')
-      .eq('service', 'pelican')
-      .eq('is_active', true)
-      .single()
+    // Get Pelican API configuration
+    const pelicanApiUrl = Deno.env.get('PELICAN_API_URL')
+    const pelicanApiKey = Deno.env.get('PELICAN_API_KEY')
 
-    if (!apiKeyData) {
-      return new Response(JSON.stringify({ error: 'Pelican API key not configured' }), {
-        status: 400,
+    if (!pelicanApiUrl || !pelicanApiKey) {
+      return new Response(JSON.stringify({ error: 'Pelican API configuration missing' }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     let pelicanResponse
-    
+
     if (action === 'create_server') {
+      let serverConfig = serverData
+
+      // If calloutId is provided, get the callout configuration
+      if (calloutId) {
+        const { data: callout } = await supabase
+          .from('callouts')
+          .select('*')
+          .eq('id', calloutId)
+          .eq('is_active', true)
+          .single()
+
+        if (callout) {
+          serverConfig = {
+            name: serverData.name,
+            memory: callout.default_ram,
+            cpu: callout.default_cpu,
+            disk: callout.default_disk,
+            egg_id: callout.egg_id,
+            docker_image: callout.docker_image,
+            startup: callout.startup_command,
+            environment: callout.environment || {},
+            node_id: callout.node_id
+          }
+        }
+      }
+
       // Create server in Pelican panel
-      pelicanResponse = await fetch(`${Deno.env.get('PELICAN_API_URL')}/api/application/servers`, {
+      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKeyData.api_key}`,
+          'Authorization': `Bearer ${pelicanApiKey}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          name: serverData.name,
+          name: serverConfig.name,
           user: userId,
-          egg: serverData.egg || 1,
-          docker_image: serverData.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
-          startup: serverData.startup || 'npm start',
-          environment: serverData.environment || {},
+          egg: serverConfig.egg_id || 1,
+          docker_image: serverConfig.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
+          startup: serverConfig.startup || 'npm start',
+          environment: serverConfig.environment || {},
           limits: {
-            memory: serverData.memory || 512,
-            swap: serverData.swap || 0,
-            disk: serverData.disk || 1024,
-            io: serverData.io || 500,
-            cpu: serverData.cpu || 100
+            memory: serverConfig.memory || 1024,
+            swap: 0,
+            disk: serverConfig.disk || 2048,
+            io: 500,
+            cpu: serverConfig.cpu || 100
           },
           feature_limits: {
-            databases: serverData.databases || 1,
-            allocations: serverData.allocations || 1,
-            backups: serverData.backups || 1
+            databases: 2,
+            allocations: 1,
+            backups: 3
           },
           allocation: {
-            default: serverData.port || 25565
+            default: serverConfig.port || 25565
           }
         })
       })
@@ -85,12 +107,16 @@ serve(async (req) => {
       const pelicanData = await pelicanResponse.json()
       
       if (pelicanResponse.ok) {
-        // Update server record with Pelican server ID
+        // Update server record with Pelican server ID and configuration
         await supabase
           .from('servers')
           .update({ 
             pelican_server_id: pelicanData.attributes.id.toString(),
-            status: 'stopped'
+            status: 'installing',
+            ram_mb: serverConfig.memory || 1024,
+            cpu_pct: serverConfig.cpu || 100,
+            disk_mb: serverConfig.disk || 2048,
+            egg_id: serverConfig.egg_id || 1
           })
           .eq('id', serverData.server_id)
       }
@@ -103,9 +129,9 @@ serve(async (req) => {
 
     if (action === 'get_server_status') {
       // Get server status from Pelican
-      pelicanResponse = await fetch(`${Deno.env.get('PELICAN_API_URL')}/api/application/servers/${serverData.pelican_server_id}`, {
+      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers/${serverData.pelican_server_id}`, {
         headers: {
-          'Authorization': `Bearer ${apiKeyData.api_key}`,
+          'Authorization': `Bearer ${pelicanApiKey}`,
           'Accept': 'application/json'
         }
       })
@@ -113,18 +139,87 @@ serve(async (req) => {
       const pelicanData = await pelicanResponse.json()
       
       if (pelicanResponse.ok) {
+        const server = pelicanData.attributes
         // Update server status in database
         await supabase
           .from('servers')
           .update({ 
-            status: pelicanData.attributes.status,
-            cpu_usage: `${pelicanData.attributes.resources?.cpu || 0}%`,
-            memory_usage: `${Math.round((pelicanData.attributes.resources?.memory || 0) / 1024 / 1024)}MB`
+            status: server.status || 'unknown',
+            cpu_usage: server.resources?.cpu ? `${Math.round(server.resources.cpu)}%` : '0%',
+            memory_usage: server.resources?.memory ? `${Math.round(server.resources.memory / 1024 / 1024)}MB` : '0MB',
+            uptime: server.resources?.uptime ? `${Math.floor(server.resources.uptime / 86400)} days` : '0 days'
           })
           .eq('pelican_server_id', serverData.pelican_server_id)
       }
 
       return new Response(JSON.stringify(pelicanData), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'control_server') {
+      // Control server power (start/stop/restart)
+      const powerAction = serverData.power_action // 'start', 'stop', 'restart'
+      
+      pelicanResponse = await fetch(`${pelicanApiUrl}/api/client/servers/${serverData.pelican_server_id}/power`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          signal: powerAction
+        })
+      })
+
+      if (pelicanResponse.ok) {
+        // Update server status optimistically
+        let newStatus = 'unknown'
+        switch (powerAction) {
+          case 'start':
+            newStatus = 'starting'
+            break
+          case 'stop':
+            newStatus = 'stopping'
+            break
+          case 'restart':
+            newStatus = 'starting'
+            break
+        }
+
+        await supabase
+          .from('servers')
+          .update({ status: newStatus })
+          .eq('pelican_server_id', serverData.pelican_server_id)
+      }
+
+      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'delete_server') {
+      // Delete server from Pelican
+      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers/${serverData.pelican_server_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      if (pelicanResponse.ok) {
+        // Delete server record from database
+        await supabase
+          .from('servers')
+          .delete()
+          .eq('pelican_server_id', serverData.pelican_server_id)
+      }
+
+      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
         status: pelicanResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -136,7 +231,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Pelican integration error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
