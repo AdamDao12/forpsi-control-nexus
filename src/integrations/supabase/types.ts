@@ -14,7 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          service: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          service: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          service?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          forpsi_order_id: string | null
+          id: string
+          order_id: string
+          period: string
+          service: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          forpsi_order_id?: string | null
+          id?: string
+          order_id: string
+          period: string
+          service: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          forpsi_order_id?: string | null
+          id?: string
+          order_id?: string
+          period?: string
+          service?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servers: {
+        Row: {
+          cpu_usage: string | null
+          created_at: string
+          id: string
+          location: string
+          memory_usage: string | null
+          name: string
+          pelican_server_id: string | null
+          status: string
+          updated_at: string
+          uptime: string | null
+          user_id: string
+        }
+        Insert: {
+          cpu_usage?: string | null
+          created_at?: string
+          id?: string
+          location: string
+          memory_usage?: string | null
+          name: string
+          pelican_server_id?: string | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+          user_id: string
+        }
+        Update: {
+          cpu_usage?: string | null
+          created_at?: string
+          id?: string
+          location?: string
+          memory_usage?: string | null
+          name?: string
+          pelican_server_id?: string | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          auth_id: string
+          created_at: string
+          email: string
+          first_name: string | null
+          id: string
+          last_login: string | null
+          last_name: string | null
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auth_id: string
+          created_at?: string
+          email: string
+          first_name?: string | null
+          id?: string
+          last_login?: string | null
+          last_name?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_id?: string
+          created_at?: string
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_login?: string | null
+          last_name?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
