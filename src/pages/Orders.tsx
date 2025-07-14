@@ -45,40 +45,16 @@ const Orders = () => {
     mutationFn: async (orderData: any) => {
       if (!user) throw new Error('User not authenticated');
 
-      // Generate order ID
-      const orderId = `#ORD-${Date.now().toString().slice(-6)}`;
-
-      const { data, error } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          order_id: orderId,
-          service: orderData.service,
-          amount: orderData.amount,
-          period: orderData.period,
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Call Forpsi integration to create the order
-      const { data: forpsiResponse, error: forpsiError } = await supabase.functions.invoke('forpsi-integration', {
+      const { data, error } = await supabase.functions.invoke('create-order', {
         body: {
-          action: 'create_order',
-          orderData: {
-            ...orderData,
-            order_id: data.id
-          }
+          package: orderData.service,
+          ram: 1024,
+          cpu: 100,
+          disk: 2048
         }
       });
 
-      if (forpsiError) {
-        console.error('Forpsi integration error:', forpsiError);
-        // Don't throw here, order was created in our system
-      }
-
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -246,44 +222,43 @@ const Orders = () => {
                       <ShoppingCart className="w-6 h-6 text-[hsl(var(--forpsi-charcoal))]" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{order.service}</h3>
-                      <p className="text-muted-foreground text-sm">{order.order_id}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center space-x-2 mb-1">
-                      {getStatusIcon(order.status)}
-                      <span className={`font-medium text-sm capitalize ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
-                    </div>
+                     <h3 className="font-semibold text-foreground">{order.package}</h3>
+                     <p className="text-muted-foreground text-sm">#{order.id}</p>
+                   </div>
+                 </div>
+                 <div className="text-right">
+                   <div className="flex items-center space-x-2 mb-1">
+                     {getStatusIcon(order.paid ? 'completed' : 'pending')}
+                     <span className={`font-medium text-sm capitalize ${getStatusColor(order.paid ? 'completed' : 'pending')}`}>
+                       {order.paid ? 'Paid' : 'Pending'}
+                     </span>
+                   </div>
                     <div className="text-muted-foreground text-sm">
                       {new Date(order.created_at).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
-                  <div>
-                    <span className="text-muted-foreground text-sm">Amount</span>
-                    <div className="flex items-center space-x-1">
-                      <Euro className="w-4 h-4 text-[hsl(var(--forpsi-cyan))]" />
-                      <span className="font-medium">{order.amount}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-sm">Period</span>
-                    <div className="font-medium capitalize">{order.period}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-sm">Forpsi ID</span>
-                    <div className="font-medium">{order.forpsi_order_id || 'Pending'}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-sm">Updated</span>
-                    <div className="font-medium">{new Date(order.updated_at).toLocaleDateString()}</div>
-                  </div>
-                </div>
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+                   <div>
+                     <span className="text-muted-foreground text-sm">RAM</span>
+                     <div className="flex items-center space-x-1">
+                       <span className="font-medium">{order.ram}MB</span>
+                     </div>
+                   </div>
+                   <div>
+                     <span className="text-muted-foreground text-sm">CPU</span>
+                     <div className="font-medium">{order.cpu}%</div>
+                   </div>
+                   <div>
+                     <span className="text-muted-foreground text-sm">Disk</span>
+                     <div className="font-medium">{order.disk}MB</div>
+                   </div>
+                   <div>
+                     <span className="text-muted-foreground text-sm">Expires</span>
+                     <div className="font-medium">{order.expires_at ? new Date(order.expires_at).toLocaleDateString() : 'Never'}</div>
+                   </div>
+                 </div>
               </div>
             ))}
           </div>

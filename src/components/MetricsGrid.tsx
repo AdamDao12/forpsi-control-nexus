@@ -37,7 +37,7 @@ export const MetricsGrid = ({ data }: MetricsGridProps) => {
             totalServers: serversResponse.data?.length || 0,
             activeUsers: 1,
             totalOrders: ordersResponse.data?.length || 0,
-            totalRevenue: ordersResponse.data?.reduce((sum, order) => sum + (order.amount || 0), 0) || 0,
+            totalRevenue: ordersResponse.data?.reduce((sum, order) => sum + (order.ram || 0), 0) || 0,
             openTickets: ticketsResponse.data?.length || 0
           }
         };

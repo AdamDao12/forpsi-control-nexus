@@ -119,13 +119,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "node_reservations_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "node_reservations_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -134,44 +127,81 @@ export type Database = {
           },
         ]
       }
-      orders: {
+      nodes: {
         Row: {
-          amount: number
-          created_at: string
-          forpsi_order_id: string | null
-          id: string
-          order_id: string
-          period: string
-          service: string
-          status: string
-          updated_at: string
-          user_id: string
+          created_at: string | null
+          id: number
+          location_id: number | null
+          name: string | null
+          reserved_by: string | null
         }
         Insert: {
-          amount: number
-          created_at?: string
-          forpsi_order_id?: string | null
-          id?: string
-          order_id: string
-          period: string
-          service: string
-          status?: string
-          updated_at?: string
-          user_id: string
+          created_at?: string | null
+          id: number
+          location_id?: number | null
+          name?: string | null
+          reserved_by?: string | null
         }
         Update: {
-          amount?: number
-          created_at?: string
-          forpsi_order_id?: string | null
-          id?: string
-          order_id?: string
-          period?: string
-          service?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
+          created_at?: string | null
+          id?: number
+          location_id?: number | null
+          name?: string | null
+          reserved_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "nodes_reserved_by_fkey"
+            columns: ["reserved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["auth_id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          cpu: number | null
+          created_at: string | null
+          disk: number | null
+          expires_at: string | null
+          id: number
+          package: string | null
+          paid: boolean | null
+          ram: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cpu?: number | null
+          created_at?: string | null
+          disk?: number | null
+          expires_at?: string | null
+          id?: number
+          package?: string | null
+          paid?: boolean | null
+          ram?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cpu?: number | null
+          created_at?: string | null
+          disk?: number | null
+          expires_at?: string | null
+          id?: number
+          package?: string | null
+          paid?: boolean | null
+          ram?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_new_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["auth_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -181,6 +211,7 @@ export type Database = {
           first_name: string | null
           last_login: string | null
           last_name: string | null
+          pelican_user_id: number | null
           role: string
           status: string
           updated_at: string
@@ -192,6 +223,7 @@ export type Database = {
           first_name?: string | null
           last_login?: string | null
           last_name?: string | null
+          pelican_user_id?: number | null
           role?: string
           status?: string
           updated_at?: string
@@ -203,6 +235,7 @@ export type Database = {
           first_name?: string | null
           last_login?: string | null
           last_name?: string | null
+          pelican_user_id?: number | null
           role?: string
           status?: string
           updated_at?: string
@@ -221,7 +254,8 @@ export type Database = {
           memory_usage: string | null
           name: string
           node_id: string | null
-          pelican_server_id: string | null
+          node_id_int: number | null
+          pelican_server_id: number | null
           ram_mb: number | null
           status: string
           updated_at: string
@@ -239,7 +273,8 @@ export type Database = {
           memory_usage?: string | null
           name: string
           node_id?: string | null
-          pelican_server_id?: string | null
+          node_id_int?: number | null
+          pelican_server_id?: number | null
           ram_mb?: number | null
           status?: string
           updated_at?: string
@@ -257,14 +292,23 @@ export type Database = {
           memory_usage?: string | null
           name?: string
           node_id?: string | null
-          pelican_server_id?: string | null
+          node_id_int?: number | null
+          pelican_server_id?: number | null
           ram_mb?: number | null
           status?: string
           updated_at?: string
           uptime?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "servers_node_id_int_fkey"
+            columns: ["node_id_int"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_metrics: {
         Row: {

@@ -163,29 +163,20 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
       console.log('✅ Server record created:', newServer);
 
       // Then call Pelican integration to create the actual server
-      console.log('🐦 Calling Pelican integration...');
-      const { data, error } = await supabase.functions.invoke('pelican-integration', {
+      console.log('🐦 Calling create-server function...');
+      const { data, error } = await supabase.functions.invoke('create-server', {
         body: {
-          action: 'create_server',
-          serverData: {
-            name: formData.name,
-            eggId: formData.eggId,
-            nodeId: formData.nodeId,
-            memory: formData.memory,
-            disk: formData.disk,
-            cpu: formData.cpu,
-            environment: {},
-            server_id: newServer.id
-          },
-          userId: user.id
+          order_id: 1, // We'll create a dummy order for now
+          egg_id: formData.eggId,
+          node_id: parseInt(formData.nodeId)
         }
       });
 
-      console.log('🐦 Pelican response:', data);
-      console.log('🐦 Pelican error:', error);
+      console.log('🐦 Create-server response:', data);
+      console.log('🐦 Create-server error:', error);
 
       if (error) {
-        console.error('❌ Pelican integration error:', error);
+        console.error('❌ Create-server error:', error);
         // Update server status to failed
         await supabase
           .from('servers')
@@ -194,21 +185,21 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         throw new Error(`Server creation failed: ${error.message || 'Unknown error'}`);
       }
 
-      if (!data?.success) {
-        console.error('❌ Pelican API error:', data);
+      if (!data?.ok) {
+        console.error('❌ Create-server API error:', data);
         // Update server status to failed
         await supabase
           .from('servers')
           .update({ status: 'failed' })
           .eq('id', newServer.id);
-        throw new Error(`Server creation failed: ${data?.error || 'Unknown error from Pelican API'}`);
+        throw new Error(`Server creation failed: ${data?.error || 'Unknown error from create-server'}`);
       }
 
       console.log('✅ Server created successfully:', data);
 
       toast({
         title: "Server Created", 
-        description: data.message || "Your server is being created and will be available shortly.",
+        description: data.name ? `Server "${data.name}" is being created.` : "Your server is being created and will be available shortly.",
       });
       
       onServerCreated();

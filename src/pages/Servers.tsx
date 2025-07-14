@@ -18,7 +18,7 @@ interface Server {
   memory_usage: string | null;
   location: string;
   uptime: string | null;
-  pelican_server_id: string | null;
+  pelican_server_id: number | null;
   created_at: string;
 }
 
