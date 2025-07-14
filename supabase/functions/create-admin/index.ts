@@ -17,41 +17,51 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Check if any admin already exists
-    const { data: existingAdmin } = await supabase
+    console.log('Creating admin user...')
+
+    // Create admin user
+    const adminEmail = 'admin@nexus.com'
+    const adminPassword = 'admin123'
+
+    // First check if admin already exists
+    const { data: existingProfiles } = await supabase
       .from('profiles')
       .select('*')
       .eq('role', 'admin')
-      .single()
 
-    if (existingAdmin) {
+    if (existingProfiles && existingProfiles.length > 0) {
       return new Response(JSON.stringify({ 
         message: 'Admin already exists',
-        admin: {
-          email: existingAdmin.email,
-          name: `${existingAdmin.first_name} ${existingAdmin.last_name}`
+        credentials: {
+          email: adminEmail,
+          password: adminPassword
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Create admin user
-    const adminEmail = 'admin@nexus.com'
-    const adminPassword = 'admin123'
+    console.log('Creating new admin user in auth...')
 
     const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
       email: adminEmail,
       password: adminPassword,
-      email_confirm: true
+      email_confirm: true,
+      user_metadata: {
+        first_name: 'Admin',
+        last_name: 'User'
+      }
     })
 
     if (authError) {
+      console.error('Auth error:', authError)
       return new Response(JSON.stringify({ error: authError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    console.log('Created auth user:', newUser.user.id)
 
     // Create admin profile
     const { error: profileError } = await supabase
@@ -65,11 +75,14 @@ serve(async (req) => {
       })
 
     if (profileError) {
+      console.error('Profile error:', profileError)
       return new Response(JSON.stringify({ error: profileError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    console.log('Admin profile created successfully')
 
     return new Response(JSON.stringify({ 
       success: true,
