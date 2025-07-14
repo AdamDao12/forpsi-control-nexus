@@ -33,15 +33,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        // Use setTimeout to avoid blocking the auth callback
+        setTimeout(() => {
+          fetchUserProfile(session.user.id);
+        }, 0);
+        
         if (event === 'SIGNED_IN') {
           // Update last login
-          await supabase
-            .from('profiles')
-            .update({ last_login: new Date().toISOString() })
-            .eq('auth_id', session.user.id);
+          setTimeout(async () => {
+            await supabase
+              .from('profiles')
+              .update({ last_login: new Date().toISOString() })
+              .eq('auth_id', session.user.id);
+          }, 0);
         }
       } else {
         setUserProfile(null);
@@ -63,14 +70,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Profile fetch error:', error);
+        if (error.code === 'PGRST116') {
+          // Profile doesn't exist, this is expected for new users
+          setUserProfile(null);
+          return;
+        }
         throw error;
       }
       
       console.log('Profile data loaded:', data);
+      console.log('User role:', data?.role);
       setUserProfile(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      // If profile doesn't exist, the user might need to complete setup
       setUserProfile(null);
     }
   };

@@ -11,8 +11,10 @@ import {
   Menu,
   ChevronLeft,
   Settings,
-  Code
+  Code,
+  LogOut
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -32,6 +34,7 @@ const menuItems = [
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
+  const { user, userProfile, signOut } = useAuth();
 
   return (
     <div className={`fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border transition-all duration-300 z-50 ${collapsed ? 'w-16' : 'w-64'}`}>
@@ -83,7 +86,27 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
 
       {/* Footer */}
       {!collapsed && (
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-4 left-4 right-4 space-y-3">
+          {/* User Info */}
+          {user && (
+            <div className="bg-sidebar-accent rounded-xl p-3">
+              <div className="text-xs text-sidebar-foreground/70 mb-1">Signed in as</div>
+              <div className="text-sm text-sidebar-foreground font-medium">
+                {userProfile?.first_name} {userProfile?.last_name}
+              </div>
+              <div className="text-xs text-sidebar-foreground/70">{user.email}</div>
+              <div className="text-xs text-sidebar-foreground/70">Role: {userProfile?.role || 'Loading...'}</div>
+              <button
+                onClick={signOut}
+                className="mt-2 w-full flex items-center space-x-2 text-xs text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+              >
+                <LogOut className="w-3 h-3" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
+          
+          {/* Status */}
           <div className="bg-sidebar-accent rounded-xl p-3">
             <div className="text-xs text-sidebar-foreground/70 mb-1">Status</div>
             <div className="flex items-center space-x-2">
