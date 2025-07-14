@@ -85,6 +85,35 @@ serve(async (req) => {
       }
 
       // Create server in Pelican panel
+      const serverPayload = {
+        name: serverConfig.name,
+        user: parseInt(userId), // User ID as number
+        egg: parseInt(serverConfig.eggId || serverConfig.egg_id || 1), // Egg ID as number
+        docker_image: serverConfig.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
+        startup: serverConfig.startup || 'npm start',
+        environment: serverConfig.environment || {},
+        limits: {
+          memory: parseInt(serverConfig.memory || 1024),
+          swap: -1,
+          disk: parseInt(serverConfig.disk || 2048),
+          io: 500,
+          cpu: parseInt(serverConfig.cpu || 100)
+        },
+        feature_limits: {
+          databases: 2,
+          allocations: 1,
+          backups: 3
+        },
+        allocation: {
+          default: (serverConfig.port || 25565).toString()
+        },
+        deploy: {
+          locations: [parseInt(serverConfig.nodeId || serverConfig.node_id)]
+        }
+      }
+      
+      console.log('Server payload:', JSON.stringify(serverPayload, null, 2))
+      
       pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
         method: 'POST',
         headers: {
@@ -92,30 +121,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          name: serverConfig.name,
-          user: user.id,
-          egg: serverConfig.eggId || serverConfig.egg_id || 1,
-          docker_image: serverConfig.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
-          startup: serverConfig.startup || 'npm start',
-          environment: serverConfig.environment || {},
-          limits: {
-            memory: serverConfig.memory || 1024,
-            swap: 0,
-            disk: serverConfig.disk || 2048,
-            io: 500,
-            cpu: serverConfig.cpu || 100
-          },
-          feature_limits: {
-            databases: 2,
-            allocations: 1,
-            backups: 3
-          },
-          allocation: {
-            default: serverConfig.port || 25565
-          },
-          node: parseInt(serverConfig.nodeId || serverConfig.node_id)
-        })
+        body: JSON.stringify(serverPayload)
       })
 
       const pelicanData = await pelicanResponse.json()
