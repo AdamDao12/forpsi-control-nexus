@@ -252,11 +252,17 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                   <SelectValue placeholder={nodesLoading ? "Loading nodes..." : "Select a node"} />
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
-                  {nodes.map((node: any) => (
-                    <SelectItem key={node.id || node.attributes?.id} value={(node.id || node.attributes?.id || '').toString()} className="hover:bg-sidebar-accent">
-                      {node.name || node.attributes?.name} ({node.fqdn || node.attributes?.fqdn})
-                    </SelectItem>
-                  ))}
+                  {nodes.map((node: any) => {
+                    const nodeId = node.id || node.attributes?.id;
+                    const nodeName = node.name || node.attributes?.name;
+                    const nodeFqdn = node.fqdn || node.attributes?.fqdn;
+                    
+                    return (
+                      <SelectItem key={nodeId} value={nodeId?.toString()} className="hover:bg-sidebar-accent">
+                        {nodeName} ({nodeFqdn})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
