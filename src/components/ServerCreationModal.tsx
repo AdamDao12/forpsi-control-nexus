@@ -149,7 +149,7 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-background border-border z-[100]">
+      <DialogContent className="sm:max-w-[600px] bg-background border-border relative">
         <DialogHeader>
           <DialogTitle className="text-foreground">Create New Server</DialogTitle>
         </DialogHeader>
