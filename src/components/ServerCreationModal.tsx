@@ -15,6 +15,8 @@ interface ServerCreationModalProps {
 }
 
 export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: ServerCreationModalProps) => {
+  console.log('ServerCreationModal render - isOpen:', isOpen);
+  
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -31,10 +33,13 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
   const { data: nodes = [], isLoading: nodesLoading } = useQuery({
     queryKey: ['nodes-for-creation'],
     queryFn: async () => {
+      console.log('Fetching nodes for modal...');
       try {
         const { data, error } = await supabase.functions.invoke('pelican-integration', {
           body: { action: 'list_nodes' }
         });
+        console.log('Modal nodes response:', data);
+        console.log('Modal nodes error:', error);
         if (error) throw error;
         return data?.data || data || [];
       } catch (error) {
@@ -67,6 +72,8 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submit started');
+    console.log('Form data:', formData);
     setIsLoading(true);
 
     try {
@@ -142,7 +149,7 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-background border-border">
+      <DialogContent className="sm:max-w-[600px] bg-background border-border z-[100]">
         <DialogHeader>
           <DialogTitle className="text-foreground">Create New Server</DialogTitle>
         </DialogHeader>

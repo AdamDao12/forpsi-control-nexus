@@ -241,7 +241,7 @@ const Nodes = () => {
                       <span>Memory</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.usage?.allocatedRam || 0}MB / {node.memory}MB
+                      {node.usage?.allocatedRam || 0}MB / {(node.memory || 0).toLocaleString()}MB
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -250,7 +250,7 @@ const Nodes = () => {
                       <span>Disk</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.usage?.allocatedDisk || 0}MB / {node.disk}MB
+                      {node.usage?.allocatedDisk || 0}MB / {(node.disk || 0).toLocaleString()}MB
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -259,7 +259,7 @@ const Nodes = () => {
                       <span>CPU</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.usage?.allocatedCpu || 0}% / {node.cpu}%
+                      {node.usage?.allocatedCpu || 0}% / {node.cpu || 0}%
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -268,12 +268,18 @@ const Nodes = () => {
                       <span>Servers</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.usage?.activeServers || 0} / {node.usage?.totalServers || 0}
+                      {node.usage?.activeServers || 0} active
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">FQDN</span>
                     <span className="text-foreground font-medium text-xs">{node.fqdn}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Overallocation</span>
+                    <span className="text-foreground font-medium text-xs">
+                      RAM: {node.memory_overallocate || 0}% | CPU: {node.cpu_overallocate || 0}% | Disk: {node.disk_overallocate || 0}%
+                    </span>
                   </div>
                 </div>
 
