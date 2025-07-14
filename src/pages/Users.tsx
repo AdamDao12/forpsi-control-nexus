@@ -20,7 +20,7 @@ const Users = () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -51,9 +51,9 @@ const Users = () => {
 
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .delete()
-        .eq('id', userId);
+        .eq('auth_id', userId);
 
       if (error) throw error;
 
@@ -123,7 +123,7 @@ const Users = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {users?.map((user) => (
-              <div key={user.id} className="forpsi-card p-6">
+              <div key={user.auth_id} className="forpsi-card p-6">
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="w-12 h-12 bg-[hsl(var(--forpsi-cyan))] rounded-full flex items-center justify-center">
                     <span className="text-[hsl(var(--forpsi-charcoal))] font-bold text-lg">
@@ -179,7 +179,7 @@ const Users = () => {
                   </button>
                   {userProfile?.role === 'admin' && (
                     <button 
-                      onClick={() => handleDeleteUser(user.id)}
+                      onClick={() => handleDeleteUser(user.auth_id)}
                       className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors rounded-lg px-3 py-2 font-medium flex items-center justify-center space-x-2"
                     >
                       <Trash2 className="w-4 h-4" />

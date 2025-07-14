@@ -41,6 +41,57 @@ export type Database = {
         }
         Relationships: []
       }
+      callouts: {
+        Row: {
+          created_at: string
+          default_cpu: number
+          default_disk: number
+          default_ram: number
+          description: string | null
+          docker_image: string | null
+          egg_id: number
+          environment: Json | null
+          id: string
+          is_active: boolean
+          label: string
+          node_id: string | null
+          startup_command: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_cpu?: number
+          default_disk?: number
+          default_ram?: number
+          description?: string | null
+          docker_image?: string | null
+          egg_id?: number
+          environment?: Json | null
+          id?: string
+          is_active?: boolean
+          label: string
+          node_id?: string | null
+          startup_command?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_cpu?: number
+          default_disk?: number
+          default_ram?: number
+          description?: string | null
+          docker_image?: string | null
+          egg_id?: number
+          environment?: Json | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          node_id?: string | null
+          startup_command?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           amount: number
@@ -78,73 +129,14 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      servers: {
-        Row: {
-          cpu_usage: string | null
-          created_at: string
-          id: string
-          location: string
-          memory_usage: string | null
-          name: string
-          pelican_server_id: string | null
-          status: string
-          updated_at: string
-          uptime: string | null
-          user_id: string
-        }
-        Insert: {
-          cpu_usage?: string | null
-          created_at?: string
-          id?: string
-          location: string
-          memory_usage?: string | null
-          name: string
-          pelican_server_id?: string | null
-          status?: string
-          updated_at?: string
-          uptime?: string | null
-          user_id: string
-        }
-        Update: {
-          cpu_usage?: string | null
-          created_at?: string
-          id?: string
-          location?: string
-          memory_usage?: string | null
-          name?: string
-          pelican_server_id?: string | null
-          status?: string
-          updated_at?: string
-          uptime?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "servers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      users: {
+      profiles: {
         Row: {
           auth_id: string
           created_at: string
           email: string
           first_name: string | null
-          id: string
           last_login: string | null
           last_name: string | null
           role: string
@@ -156,7 +148,6 @@ export type Database = {
           created_at?: string
           email: string
           first_name?: string | null
-          id?: string
           last_login?: string | null
           last_name?: string | null
           role?: string
@@ -168,7 +159,6 @@ export type Database = {
           created_at?: string
           email?: string
           first_name?: string | null
-          id?: string
           last_login?: string | null
           last_name?: string | null
           role?: string
@@ -176,6 +166,138 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      servers: {
+        Row: {
+          cpu_pct: number | null
+          cpu_usage: string | null
+          created_at: string
+          disk_mb: number | null
+          egg_id: number | null
+          id: string
+          location: string
+          memory_usage: string | null
+          name: string
+          node_id: string | null
+          pelican_server_id: string | null
+          ram_mb: number | null
+          status: string
+          updated_at: string
+          uptime: string | null
+          user_id: string
+        }
+        Insert: {
+          cpu_pct?: number | null
+          cpu_usage?: string | null
+          created_at?: string
+          disk_mb?: number | null
+          egg_id?: number | null
+          id?: string
+          location: string
+          memory_usage?: string | null
+          name: string
+          node_id?: string | null
+          pelican_server_id?: string | null
+          ram_mb?: number | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+          user_id: string
+        }
+        Update: {
+          cpu_pct?: number | null
+          cpu_usage?: string | null
+          created_at?: string
+          disk_mb?: number | null
+          egg_id?: number | null
+          id?: string
+          location?: string
+          memory_usage?: string | null
+          name?: string
+          node_id?: string | null
+          pelican_server_id?: string | null
+          ram_mb?: number | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      system_metrics: {
+        Row: {
+          id: string
+          metadata: Json | null
+          metric_type: string
+          recorded_at: string
+          value: number
+        }
+        Insert: {
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          recorded_at?: string
+          value: number
+        }
+        Update: {
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          recorded_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          body: string
+          created_at: string
+          id: string
+          priority: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          priority?: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["auth_id"]
+          },
+          {
+            foreignKeyName: "tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["auth_id"]
+          },
+        ]
       }
     }
     Views: {

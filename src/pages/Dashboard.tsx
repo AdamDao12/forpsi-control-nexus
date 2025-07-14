@@ -72,7 +72,7 @@ const Dashboard = () => {
           <div className="text-center py-8">Loading dashboard...</div>
         ) : (
           <>
-            <MetricsGrid metrics={dashboardData?.realTime} />
+            <MetricsGrid />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ActivityFeed />
               <div className="forpsi-card p-6">

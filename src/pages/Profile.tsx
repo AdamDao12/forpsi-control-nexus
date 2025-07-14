@@ -34,7 +34,7 @@ const Profile = () => {
   const handleSaveProfile = async () => {
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           first_name: profileData.first_name,
           last_name: profileData.last_name

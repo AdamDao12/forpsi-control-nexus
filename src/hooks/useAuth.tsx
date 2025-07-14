@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (event === 'SIGNED_IN') {
           // Update last login
           await supabase
-            .from('users')
+            .from('profiles')
             .update({ last_login: new Date().toISOString() })
             .eq('auth_id', session.user.id);
         }
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserProfile = async (authId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('auth_id', authId)
         .single();
