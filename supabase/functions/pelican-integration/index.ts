@@ -207,34 +207,37 @@ serve(async (req) => {
           "egg": parseInt(serverConfig.eggId || 1),
           "docker_image": eggData?.docker_image || "ghcr.io/pelican-dev/yolks:nodejs_18",
           "startup": eggData?.startup || "if [[ -d .git ]] && [[ \"{{AUTO_UPDATE}}\" == \"1\" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; /usr/local/bin/node /home/container/{{JS_FILE}}",
-          "environment": eggData?.relationships?.variables?.data?.reduce((env: any, variable: any) => {
+          "environment": Object.keys(eggData?.relationships?.variables?.data?.reduce((env: any, variable: any) => {
             env[variable.attributes.env_variable] = variable.attributes.default_value || "";
             return env;
-          }, {}) || {},
-          "skip_scripts": true,
+          }, {}) || {}).map(key => `${key}=${(eggData?.relationships?.variables?.data?.reduce((env: any, variable: any) => {
+            env[variable.attributes.env_variable] = variable.attributes.default_value || "";
+            return env;
+          }, {}) || {})[key]}`),
+          "skip_scripts": false,
           "oom_killer": true,
           "start_on_completion": true,
           "limits": {
             "memory": parseInt(serverConfig.memory || 1024),
             "swap": -1,
             "disk": parseInt(serverConfig.disk || 2048),
-            "io": 0,
-            "threads": "string",
+            "io": 500,
+            "threads": null,
             "cpu": parseInt(serverConfig.cpu || 100)
           },
           "feature_limits": {
             "databases": 0,
-            "allocations": 0,
+            "allocations": 1,
             "backups": 0
           },
           "allocation": {
-            "default": "string",
+            "default": null,
             "additional": []
           },
           "deploy": {
             "locations": [parseInt(serverConfig.nodeId)],
             "tags": [],
-            "dedicated_ip": true,
+            "dedicated_ip": false,
             "port_range": []
           }
         };
