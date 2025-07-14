@@ -29,25 +29,42 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     location: "default"
   });
 
-  // Fetch available nodes
+  // Fetch available nodes with better error handling
   const { data: nodes = [], isLoading: nodesLoading } = useQuery({
     queryKey: ['nodes-for-creation'],
     queryFn: async () => {
-      console.log('Fetching nodes for modal...');
+      console.log('🔧 Fetching nodes for modal...');
       try {
         const { data, error } = await supabase.functions.invoke('pelican-integration', {
           body: { action: 'list_nodes' }
         });
-        console.log('Modal nodes response:', data);
-        console.log('Modal nodes error:', error);
-        if (error) throw error;
-        return data?.data || data || [];
+        console.log('🔧 Modal nodes response:', data);
+        console.log('🔧 Modal nodes error:', error);
+        
+        if (error) {
+          console.error('❌ Node fetch error:', error);
+          throw error;
+        }
+        
+        // Handle different response structures
+        const nodesList = data?.data || data || [];
+        console.log('🔧 Processed nodes list:', nodesList);
+        
+        // Ensure each node has proper id structure
+        return nodesList.map((node: any) => ({
+          ...node,
+          id: node.id || node.attributes?.id,
+          name: node.name || node.attributes?.name,
+          fqdn: node.fqdn || node.attributes?.fqdn
+        }));
       } catch (error) {
-        console.error('Failed to fetch nodes:', error);
+        console.error('❌ Failed to fetch nodes:', error);
         return [];
       }
     },
     enabled: isOpen,
+    retry: 2,
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   // Fetch available nests with eggs (games) with fallback to direct eggs
