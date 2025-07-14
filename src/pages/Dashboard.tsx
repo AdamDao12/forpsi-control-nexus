@@ -25,8 +25,8 @@ const Dashboard = () => {
       } else {
         // For regular users, get their own data
         const [serversResponse, ordersResponse] = await Promise.all([
-          supabase.from('servers').select('*').eq('user_id', userProfile?.id || ''),
-          supabase.from('orders').select('*').eq('user_id', userProfile?.id || '')
+          supabase.from('servers').select('*').eq('user_id', user.id),
+          supabase.from('orders').select('*').eq('user_id', user.id)
         ]);
 
         return {
