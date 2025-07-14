@@ -287,157 +287,174 @@ serve(async (req) => {
     }
 
     if (action === 'list_nodes') {
-      console.log('Fetching nodes from:', `${pelicanApiUrl}/nodes`)
+      log('INFO', 'Fetching nodes from Pelican');
       
-      // First get all nodes from Pelican Application API
-      pelicanResponse = await fetch(`${pelicanApiUrl}/nodes`, {
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Accept': 'application/json'
-        }
-      })
-
-      const responseData = await pelicanResponse.json()
-      console.log('Pelican nodes response:', JSON.stringify(responseData, null, 2))
-      console.log('Response status:', pelicanResponse.status)
-
-      // Enrich nodes with real-time system stats from Wings daemon
-      if (responseData.data && Array.isArray(responseData.data)) {
-        const enrichedNodes = await Promise.all(
-          responseData.data.map(async (node: any) => {
-            try {
-              const nodeAttributes = node.attributes
-              console.log(`Fetching real-time stats for node ${nodeAttributes.id} (${nodeAttributes.fqdn})`)
-              
-              // Get real-time system stats from Wings daemon
-              const wingsUrl = `${nodeAttributes.scheme}://${nodeAttributes.fqdn}:${nodeAttributes.daemon_listen}/api/system?v=2`
-              console.log(`Wings API URL: ${wingsUrl}`)
-              
-              // Get node-specific token from Supabase secrets
-              const nodeToken = Deno.env.get(`NODE_TOKEN_${nodeAttributes.id}`)
-              if (!nodeToken) {
-                console.warn(`No NODE_TOKEN found for node ${nodeAttributes.id}`)
-                return node
-              }
-              
-              const statsResponse = await fetch(wingsUrl, {
-                headers: {
-                  'Authorization': `Bearer ${nodeToken}`,
-                  'Accept': 'application/json'
-                }
-              })
-              
-              if (statsResponse.ok) {
-                const systemStats = await statsResponse.json()
-                console.log(`Node ${nodeAttributes.id} real-time stats:`, systemStats)
-                
-                // Add real-time usage to node data
-                nodeAttributes.real_time_stats = {
-                  memory: systemStats.memory || {},
-                  cpu: systemStats.cpu || {},
-                  disk: systemStats.disk || {},
-                  load: systemStats.load || {},
-                  uptime: systemStats.uptime || 0,
-                  network: systemStats.network || {}
-                }
-              } else {
-                console.warn(`Failed to get real-time stats for node ${nodeAttributes.id}: ${statsResponse.status}`)
-                console.warn(`Response: ${await statsResponse.text()}`)
-              }
-            } catch (error) {
-              console.error(`Failed to get real-time stats for node ${node.attributes.id}:`, error)
-            }
-            
-            return node
-          })
-        )
+      try {
+        // Get all nodes from Pelican Application API
+        const { response, data } = await makeApiRequest(`${pelicanApiUrl}/nodes`);
         
-        responseData.data = enrichedNodes
-      }
+        log('INFO', 'Successfully fetched nodes', { 
+          nodesCount: data?.data?.length || 0 
+        });
 
-      return new Response(JSON.stringify(responseData), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+        // Enrich nodes with real-time system stats from Wings daemon if available
+        if (data.data && Array.isArray(data.data)) {
+          const enrichedNodes = await Promise.all(
+            data.data.map(async (node: any) => {
+              try {
+                const nodeAttributes = node.attributes;
+                log('DEBUG', 'Processing node', { nodeId: nodeAttributes.id, fqdn: nodeAttributes.fqdn });
+                
+                // Get node-specific token from Supabase secrets
+                const nodeToken = Deno.env.get(`NODE_TOKEN_${nodeAttributes.id}`);
+                if (!nodeToken) {
+                  log('WARN', 'No NODE_TOKEN found for node', { nodeId: nodeAttributes.id });
+                  return node;
+                }
+                
+                // Get real-time system stats from Wings daemon
+                const wingsUrl = `${nodeAttributes.scheme}://${nodeAttributes.fqdn}:${nodeAttributes.daemon_listen}/api/system?v=2`;
+                log('DEBUG', 'Fetching Wings stats', { wingsUrl });
+                
+                const statsResponse = await fetch(wingsUrl, {
+                  headers: {
+                    'Authorization': `Bearer ${nodeToken}`,
+                    'Accept': 'application/json'
+                  },
+                  signal: AbortSignal.timeout(5000) // 5s timeout for Wings
+                });
+                
+                if (statsResponse.ok) {
+                  const systemStats = await statsResponse.json();
+                  log('DEBUG', 'Wings stats retrieved', { nodeId: nodeAttributes.id });
+                  
+                  // Add real-time usage to node data
+                  nodeAttributes.real_time_stats = {
+                    memory: systemStats.memory || {},
+                    cpu: systemStats.cpu || {},
+                    disk: systemStats.disk || {},
+                    load: systemStats.load || {},
+                    uptime: systemStats.uptime || 0,
+                    network: systemStats.network || {}
+                  };
+                } else {
+                  log('WARN', 'Failed to get Wings stats', { 
+                    nodeId: nodeAttributes.id, 
+                    status: statsResponse.status 
+                  });
+                }
+              } catch (error) {
+                log('ERROR', 'Wings stats error', { 
+                  nodeId: node.attributes.id, 
+                  error: error.message 
+                });
+              }
+              
+              return node;
+            })
+          );
+          
+          data.data = enrichedNodes;
+        }
+
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     if (action === 'list_servers') {
-      console.log('Fetching servers from:', `${pelicanApiUrl}/servers`)
+      log('INFO', 'Fetching servers from Pelican');
       
-      // List all servers from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Accept': 'application/json'
-        }
-      })
+      try {
+        // List all servers from Pelican
+        const { response, data } = await makeApiRequest(`${pelicanApiUrl}/servers`);
+        
+        log('INFO', 'Successfully fetched servers', { 
+          serversCount: data?.data?.length || 0 
+        });
 
-      const responseData = await pelicanResponse.json()
-      console.log('Pelican servers response:', JSON.stringify(responseData, null, 2))
-
-      return new Response(JSON.stringify(responseData), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     if (action === 'get_server_status') {
-      // Get server status from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Accept': 'application/json'
-        }
-      })
-
-      const pelicanData = await pelicanResponse.json()
+      log('INFO', 'Getting server status', { pelicanServerId: serverData.pelican_server_id });
       
-      if (pelicanResponse.ok) {
-        const server = pelicanData.attributes
-        // Update server status in database
-        await supabase
-          .from('servers')
-          .update({ 
-            status: server.status || 'unknown',
-            cpu_usage: server.resources?.cpu ? `${Math.round(server.resources.cpu)}%` : '0%',
-            memory_usage: server.resources?.memory ? `${Math.round(server.resources.memory / 1024 / 1024)}MB` : '0MB',
-            uptime: server.resources?.uptime ? `${Math.floor(server.resources.uptime / 86400)} days` : '0 days'
-          })
-          .eq('pelican_server_id', serverData.pelican_server_id)
-      }
+      try {
+        // Get server status from Pelican
+        const { response, data: pelicanData } = await makeApiRequest(
+          `${pelicanApiUrl}/servers/${serverData.pelican_server_id}`
+        );
+        
+        if (response.ok) {
+          const server = pelicanData.attributes;
+          // Update server status in database
+          await supabase
+            .from('servers')
+            .update({ 
+              status: server.status || 'unknown',
+              cpu_usage: server.resources?.cpu ? `${Math.round(server.resources.cpu)}%` : '0%',
+              memory_usage: server.resources?.memory ? `${Math.round(server.resources.memory / 1024 / 1024)}MB` : '0MB',
+              uptime: server.resources?.uptime ? `${Math.floor(server.resources.uptime / 86400)} days` : '0 days'
+            })
+            .eq('pelican_server_id', serverData.pelican_server_id);
+        }
 
-      return new Response(JSON.stringify(pelicanData), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+        return new Response(JSON.stringify(pelicanData), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     if (action === 'delete_server') {
-      console.log('Deleting server:', serverData.pelican_server_id)
+      log('INFO', 'Deleting server', { pelicanServerId: serverData.pelican_server_id });
       
-      // Delete server from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Accept': 'application/json'
+      try {
+        // Delete server from Pelican
+        const { response } = await makeApiRequest(
+          `${pelicanApiUrl}/servers/${serverData.pelican_server_id}`,
+          { method: 'DELETE' }
+        );
+        
+        if (response.ok) {
+          // Also delete from database
+          await supabase
+            .from('servers')
+            .delete()
+            .eq('pelican_server_id', serverData.pelican_server_id);
         }
-      })
 
-      console.log('Delete response status:', pelicanResponse.status)
-      
-      if (pelicanResponse.ok) {
-        // Also delete from database
-        await supabase
-          .from('servers')
-          .delete()
-          .eq('pelican_server_id', serverData.pelican_server_id)
+        return new Response(JSON.stringify({ success: response.ok }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-
-      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
     }
 
     if (action === 'sync_all_servers') {
@@ -548,76 +565,57 @@ serve(async (req) => {
 
 
     if (action === 'control_server') {
-      // Control server power (start/stop/restart)
-      const powerAction = serverData.power_action // 'start', 'stop', 'restart'
+      log('INFO', 'Controlling server power', { pelicanServerId: serverData.pelican_server_id, action: serverData.power_action });
       
-      pelicanResponse = await fetch(`http://81.2.233.110/api/client/servers/${serverData.pelican_server_id}/power`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          signal: powerAction
-        })
-      })
+      try {
+        // Control server power (start/stop/restart)
+        const powerAction = serverData.power_action; // 'start', 'stop', 'restart'
+        
+        const { response } = await makeApiRequest(
+          `http://81.2.233.110/api/client/servers/${serverData.pelican_server_id}/power`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ signal: powerAction })
+          }
+        );
 
-      if (pelicanResponse.ok) {
-        // Update server status optimistically
-        let newStatus = 'unknown'
-        switch (powerAction) {
-          case 'start':
-            newStatus = 'starting'
-            break
-          case 'stop':
-            newStatus = 'stopping'
-            break
-          case 'restart':
-            newStatus = 'starting'
-            break
+        if (response.ok) {
+          // Update server status optimistically
+          let newStatus = 'unknown';
+          switch (powerAction) {
+            case 'start':
+              newStatus = 'starting';
+              break;
+            case 'stop':
+              newStatus = 'stopping';
+              break;
+            case 'restart':
+              newStatus = 'starting';
+              break;
+          }
+
+          await supabase
+            .from('servers')
+            .update({ status: newStatus })
+            .eq('pelican_server_id', serverData.pelican_server_id);
         }
 
-        await supabase
-          .from('servers')
-          .update({ status: newStatus })
-          .eq('pelican_server_id', serverData.pelican_server_id)
+        return new Response(JSON.stringify({ success: response.ok }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-
-      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
     }
 
-    if (action === 'delete_server') {
-      // Delete server from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${pelicanApiKey}`,
-          'Accept': 'application/json'
-        }
-      })
-
-      if (pelicanResponse.ok) {
-        // Delete server record from database
-        await supabase
-          .from('servers')
-          .delete()
-          .eq('pelican_server_id', serverData.pelican_server_id)
-      }
-
-      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
-        status: pelicanResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+    return new Response(JSON.stringify({ error: 'Unknown action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
 
   } catch (error) {
     console.error('Pelican integration error:', error)
