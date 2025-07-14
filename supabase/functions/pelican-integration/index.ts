@@ -29,15 +29,17 @@ serve(async (req) => {
       })
     }
 
-    const { action, serverData, userId, calloutId } = await req.json()
+    const requestBody = await req.json()
+    const { action, serverData, userId, calloutId } = requestBody
 
-    // Get Pelican API configuration
+    // Get Pelican API configuration  
     const pelicanApiUrl = Deno.env.get('PELICAN_API_URL') || 'http://81.2.233.110/api/application'
     const pelicanApiKey = Deno.env.get('PELICAN_API_KEY')
 
     console.log('Pelican API URL:', pelicanApiUrl)
     console.log('Action requested:', action)
     console.log('User ID:', user.id)
+    console.log('Request body:', requestBody)
 
     if (!pelicanApiKey) {
       return new Response(JSON.stringify({ error: 'Pelican API key missing' }), {
@@ -75,6 +77,13 @@ serve(async (req) => {
         }
       }
 
+      console.log('Creating server with config:', serverConfig)
+      
+      // Validate required fields
+      if (!serverConfig.name || !serverConfig.node_id) {
+        throw new Error('Missing required fields: name or node_id')
+      }
+
       // Create server in Pelican panel
       pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
         method: 'POST',
@@ -85,8 +94,8 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           name: serverConfig.name,
-          user: userId,
-          egg: serverConfig.egg_id || 1,
+          user: user.id,
+          egg: serverConfig.eggId || serverConfig.egg_id || 1,
           docker_image: serverConfig.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
           startup: serverConfig.startup || 'npm start',
           environment: serverConfig.environment || {},
@@ -104,7 +113,8 @@ serve(async (req) => {
           },
           allocation: {
             default: serverConfig.port || 25565
-          }
+          },
+          node: parseInt(serverConfig.nodeId || serverConfig.node_id)
         })
       })
 
@@ -242,6 +252,11 @@ serve(async (req) => {
             console.error(`Failed to sync server ${dbServer.pelican_server_id}:`, error)
           }
         }
+      }
+
+      return new Response(JSON.stringify({ success: true, synced: dbServers?.length || 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
     if (action === 'sync_servers_from_pelican') {
@@ -304,10 +319,6 @@ serve(async (req) => {
       })
     }
 
-      return new Response(JSON.stringify({ success: true, synced: dbServers?.length || 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
 
     if (action === 'control_server') {
       // Control server power (start/stop/restart)

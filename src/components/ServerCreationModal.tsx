@@ -140,8 +140,6 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] bg-background border-border">
