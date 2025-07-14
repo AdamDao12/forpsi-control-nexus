@@ -11,6 +11,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.email);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -165,6 +167,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signUp,
     signOut,
+    refetchProfile: () => user ? fetchUserProfile(user.id) : Promise.resolve(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

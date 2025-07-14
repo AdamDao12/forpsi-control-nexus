@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { User, Mail, Calendar, Shield, Save } from "lucide-react";
+import { User, Mail, Calendar, Shield, Save, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 const Profile = () => {
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile, signOut, refetchProfile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -49,8 +49,8 @@ const Profile = () => {
         description: "Your profile has been updated successfully.",
       });
 
-      // Refresh the page to show updated data
-      window.location.reload();
+      // Refresh the profile data
+      await refetchProfile();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -87,6 +87,14 @@ const Profile = () => {
             <p className="text-muted-foreground mt-1">Manage your account settings</p>
           </div>
           <div className="flex space-x-3">
+            <button 
+              onClick={refetchProfile}
+              className="forpsi-button-secondary flex items-center space-x-2"
+              title="Refresh profile data"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
             {isEditing ? (
               <>
                 <button 
