@@ -35,15 +35,35 @@ interface Node {
   maintenance_mode: boolean;
   created_at: string;
   updated_at: string;
+  daemon_listen: number;
   usage?: NodeUsage;
-  realtime_usage?: {
-    cpu_percent: number;
-    memory_bytes: number;
-    memory_limit_bytes: number;
-    disk_bytes: number;
-    network_rx_bytes: number;
-    network_tx_bytes: number;
+  real_time_stats?: {
+    memory: {
+      total: number;
+      used: number;
+      free: number;
+      available: number;
+    };
+    cpu: {
+      count: number;
+      usage: number;
+      per_core?: number[];
+    };
+    disk: {
+      used: number;
+      available: number;
+      total: number;
+    };
+    load: {
+      '1m': number;
+      '5m': number;
+      '15m': number;
+    };
     uptime: number;
+    network?: {
+      rx_bytes: number;
+      tx_bytes: number;
+    };
   };
 }
 
@@ -251,8 +271,8 @@ const Nodes = () => {
                       <span>CPU Usage</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.realtime_usage?.cpu_percent 
-                        ? `${Math.round(node.realtime_usage.cpu_percent)}%` 
+                      {node.real_time_stats?.cpu?.usage 
+                        ? `${Math.round(node.real_time_stats.cpu.usage)}%` 
                         : `${node.usage?.allocatedCpu || 0}%`} / {node.cpu || 0}%
                     </span>
                   </div>
@@ -264,24 +284,34 @@ const Nodes = () => {
                       <span>Memory Usage</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.realtime_usage?.memory_bytes && node.realtime_usage?.memory_limit_bytes
-                        ? `${(node.realtime_usage.memory_bytes / 1024 / 1024 / 1024).toFixed(2)} GB / ${(node.realtime_usage.memory_limit_bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+                      {node.real_time_stats?.memory?.used && node.real_time_stats?.memory?.total
+                        ? `${(node.real_time_stats.memory.used / 1024 / 1024 / 1024).toFixed(2)} GB / ${(node.real_time_stats.memory.total / 1024 / 1024 / 1024).toFixed(2)} GB`
                         : `${node.usage?.allocatedRam || 0}MB / ${(node.memory || 0).toLocaleString()}MB`}
                     </span>
                   </div>
                   
-                  {/* Disk Usage */}
+                  {/* Real-time Disk Usage */}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground flex items-center space-x-1">
                       <HardDrive className="w-3 h-3" />
-                      <span>Disk</span>
+                      <span>Disk Usage</span>
                     </span>
                     <span className="text-foreground font-medium">
-                      {node.realtime_usage?.disk_bytes
-                        ? `${(node.realtime_usage.disk_bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
-                        : `${node.usage?.allocatedDisk || 0}MB`} / {(node.disk || 0).toLocaleString()}MB
+                      {node.real_time_stats?.disk?.used && node.real_time_stats?.disk?.total
+                        ? `${(node.real_time_stats.disk.used / 1024 / 1024 / 1024).toFixed(2)} GB / ${(node.real_time_stats.disk.total / 1024 / 1024 / 1024).toFixed(2)} GB`
+                        : `${node.usage?.allocatedDisk || 0}MB / ${(node.disk || 0).toLocaleString()}MB`}
                     </span>
                   </div>
+                  
+                  {/* System Load */}
+                  {node.real_time_stats?.load && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">System Load</span>
+                      <span className="text-foreground font-medium text-xs">
+                        {node.real_time_stats.load['1m']?.toFixed(2)} | {node.real_time_stats.load['5m']?.toFixed(2)} | {node.real_time_stats.load['15m']?.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground flex items-center space-x-1">
@@ -292,23 +322,29 @@ const Nodes = () => {
                       {node.usage?.activeServers || 0} active
                     </span>
                   </div>
+                  
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">FQDN</span>
                     <span className="text-foreground font-medium text-xs">{node.fqdn}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Overallocation</span>
-                    <span className="text-foreground font-medium text-xs">
-                      RAM: {node.memory_overallocate || 0}% | CPU: {node.cpu_overallocate || 0}% | Disk: {node.disk_overallocate || 0}%
-                    </span>
-                  </div>
                   
                   {/* Uptime */}
-                  {node.realtime_usage?.uptime && (
+                  {node.real_time_stats?.uptime && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Uptime</span>
                       <span className="text-foreground font-medium text-xs">
-                        {Math.floor(node.realtime_usage.uptime / 86400)} days
+                        {Math.floor(node.real_time_stats.uptime / 86400)} days
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Network Stats */}
+                  {node.real_time_stats?.network && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Network</span>
+                      <span className="text-foreground font-medium text-xs">
+                        ↓{(node.real_time_stats.network.rx_bytes / 1024 / 1024).toFixed(1)}MB 
+                        ↑{(node.real_time_stats.network.tx_bytes / 1024 / 1024).toFixed(1)}MB
                       </span>
                     </div>
                   )}

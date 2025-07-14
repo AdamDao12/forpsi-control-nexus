@@ -144,7 +144,7 @@ serve(async (req) => {
     if (action === 'list_nodes') {
       console.log('Fetching nodes from:', `${pelicanApiUrl}/nodes`)
       
-      // List all nodes from Pelican
+      // First get all nodes from Pelican Application API
       pelicanResponse = await fetch(`${pelicanApiUrl}/nodes`, {
         headers: {
           'Authorization': `Bearer ${pelicanApiKey}`,
@@ -155,6 +155,53 @@ serve(async (req) => {
       const responseData = await pelicanResponse.json()
       console.log('Pelican nodes response:', JSON.stringify(responseData, null, 2))
       console.log('Response status:', pelicanResponse.status)
+
+      // Enrich nodes with real-time system stats from Wings daemon
+      if (responseData.data && Array.isArray(responseData.data)) {
+        const enrichedNodes = await Promise.all(
+          responseData.data.map(async (node: any) => {
+            try {
+              const nodeAttributes = node.attributes
+              console.log(`Fetching real-time stats for node ${nodeAttributes.id} (${nodeAttributes.fqdn})`)
+              
+              // Get real-time system stats from Wings daemon
+              const wingsUrl = `${nodeAttributes.scheme}://${nodeAttributes.fqdn}:${nodeAttributes.daemon_listen}/api/system?v=2`
+              console.log(`Wings API URL: ${wingsUrl}`)
+              
+              const statsResponse = await fetch(wingsUrl, {
+                headers: {
+                  'Authorization': `Bearer ${pelicanApiKey}`, // This might need to be the node token instead
+                  'Accept': 'application/json'
+                }
+              })
+              
+              if (statsResponse.ok) {
+                const systemStats = await statsResponse.json()
+                console.log(`Node ${nodeAttributes.id} real-time stats:`, systemStats)
+                
+                // Add real-time usage to node data
+                nodeAttributes.real_time_stats = {
+                  memory: systemStats.memory || {},
+                  cpu: systemStats.cpu || {},
+                  disk: systemStats.disk || {},
+                  load: systemStats.load || {},
+                  uptime: systemStats.uptime || 0,
+                  network: systemStats.network || {}
+                }
+              } else {
+                console.warn(`Failed to get real-time stats for node ${nodeAttributes.id}: ${statsResponse.status}`)
+                console.warn(`Response: ${await statsResponse.text()}`)
+              }
+            } catch (error) {
+              console.error(`Failed to get real-time stats for node ${node.attributes.id}:`, error)
+            }
+            
+            return node
+          })
+        )
+        
+        responseData.data = enrichedNodes
+      }
 
       return new Response(JSON.stringify(responseData), {
         status: pelicanResponse.status,
