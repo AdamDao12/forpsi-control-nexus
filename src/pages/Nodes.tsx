@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { Server, Plus, MoreHorizontal, Cpu, HardDrive, MemoryStick, Users } from "lucide-react";
+import { Server, Plus, MoreHorizontal, Cpu, HardDrive, MemoryStick, Users, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { NodeSettings } from "@/components/NodeSettings";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface NodeUsage {
   activeServers: number;
@@ -39,6 +41,18 @@ interface Node {
 const Nodes = () => {
   const { user, userProfile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [showNodeSettings, setShowNodeSettings] = useState(false);
+
+  const handleSyncServers = async () => {
+    try {
+      await supabase.functions.invoke('pelican-integration', {
+        body: { action: 'sync_servers_from_pelican' }
+      });
+    } catch (error) {
+      console.error('Failed to sync servers:', error);
+    }
+  };
 
   const { data: nodes, isLoading, error } = useQuery({
     queryKey: ['nodes'],
@@ -70,7 +84,10 @@ const Nodes = () => {
           return [];
         }
         
-        // Sync server statuses first
+        // Sync servers from Pelican first
+        await handleSyncServers();
+        
+        // Sync server statuses
         await supabase.functions.invoke('pelican-integration', {
           body: { action: 'sync_all_servers' }
         });
@@ -196,9 +213,25 @@ const Nodes = () => {
                       </div>
                     </div>
                   </div>
-                  <button className="p-2 hover:bg-sidebar-accent rounded-lg transition-colors">
-                    <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-2 hover:bg-sidebar-accent rounded-lg transition-colors">
+                        <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="bg-background border-border z-50">
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          setSelectedNode(node);
+                          setShowNodeSettings(true);
+                        }}
+                        className="cursor-pointer hover:bg-sidebar-accent"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 
                 <div className="space-y-3">
@@ -254,6 +287,15 @@ const Nodes = () => {
           </div>
         )}
       </div>
+      
+      <NodeSettings
+        isOpen={showNodeSettings}
+        onClose={() => setShowNodeSettings(false)}
+        node={selectedNode}
+        onNodeUpdated={() => {
+          // Refresh nodes data
+        }}
+      />
     </Layout>
   );
 };

@@ -242,7 +242,67 @@ serve(async (req) => {
             console.error(`Failed to sync server ${dbServer.pelican_server_id}:`, error)
           }
         }
+    }
+
+    if (action === 'sync_servers_from_pelican') {
+      console.log('Syncing servers from Pelican to database...')
+      
+      // Get all servers from Pelican
+      const pelicanServersResponse = await fetch(`${pelicanApiUrl}/servers`, {
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      if (!pelicanServersResponse.ok) {
+        throw new Error('Failed to fetch servers from Pelican')
       }
+
+      const pelicanData = await pelicanServersResponse.json()
+      const pelicanServers = pelicanData.data || []
+
+      console.log(`Found ${pelicanServers.length} servers in Pelican`)
+
+      // Get current servers in database
+      const { data: dbServers } = await supabase
+        .from('servers')
+        .select('pelican_server_id, id')
+
+      const existingPelicanIds = new Set(dbServers?.map(s => s.pelican_server_id) || [])
+
+      // Add missing servers to database
+      for (const server of pelicanServers) {
+        const serverId = server.attributes.id.toString()
+        
+        if (!existingPelicanIds.has(serverId)) {
+          console.log(`Adding new server ${serverId} to database`)
+          
+          // Create server record in database
+          await supabase
+            .from('servers')
+            .insert({
+              name: server.attributes.name,
+              pelican_server_id: serverId,
+              status: server.attributes.status || 'unknown',
+              ram_mb: server.attributes.limits?.memory || 1024,
+              cpu_pct: server.attributes.limits?.cpu || 100,
+              disk_mb: server.attributes.limits?.disk || 2048,
+              node_id: server.attributes.node?.toString() || null,
+              location: 'pelican-sync',
+              user_id: userId // Will need to be updated by admin
+            })
+        }
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        synced: pelicanServers.length,
+        new_servers: pelicanServers.length - existingPelicanIds.size 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
       return new Response(JSON.stringify({ success: true, synced: dbServers?.length || 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
