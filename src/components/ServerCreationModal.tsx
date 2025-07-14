@@ -200,8 +200,8 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
                   {nodes.map((node: any) => (
-                    <SelectItem key={node.id} value={node.id.toString()} className="hover:bg-sidebar-accent">
-                      {node.name} ({node.fqdn})
+                    <SelectItem key={node.id || node.attributes?.id} value={(node.id || node.attributes?.id || '').toString()} className="hover:bg-sidebar-accent">
+                      {node.name || node.attributes?.name} ({node.fqdn || node.attributes?.fqdn})
                     </SelectItem>
                   ))}
                 </SelectContent>
