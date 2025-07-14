@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { Users as UsersIcon, Plus, Edit, Trash2, Shield } from "lucide-react";
+import { Users as UsersIcon, Plus, Edit, Trash2, Shield, Key } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,11 +9,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserEditModal } from "@/components/UserEditModal";
+import { PasswordManager } from "@/components/PasswordManager";
 
 const Users = () => {
   const { user, userProfile, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [passwordUser, setPasswordUser] = useState(null);
   const { toast } = useToast();
 
   const { data: users, isLoading, refetch } = useQuery({
@@ -178,6 +180,13 @@ const Users = () => {
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>
                   </button>
+                  <button 
+                    onClick={() => setPasswordUser(user)}
+                    className="flex-1 bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-3 py-2 font-medium flex items-center justify-center space-x-2"
+                  >
+                    <Key className="w-4 h-4" />
+                    <span>Password</span>
+                  </button>
                   <button className="flex-1 bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-3 py-2 font-medium flex items-center justify-center space-x-2">
                     <Shield className="w-4 h-4" />
                     <span>Permissions</span>
@@ -201,6 +210,12 @@ const Users = () => {
           isOpen={!!editingUser}
           onClose={() => setEditingUser(null)}
           onUserUpdated={refetch}
+        />
+        
+        <PasswordManager
+          user={passwordUser}
+          isOpen={!!passwordUser}
+          onClose={() => setPasswordUser(null)}
         />
       </div>
     </Layout>

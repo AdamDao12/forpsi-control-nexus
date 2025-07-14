@@ -40,56 +40,88 @@ const Nodes = () => {
   const { user, userProfile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const { data: nodes, isLoading } = useQuery({
+  const { data: nodes, isLoading, error } = useQuery({
     queryKey: ['nodes'],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase.functions.invoke('pelican-integration', {
-        body: {
-          action: 'list_nodes'
-        }
-      });
+      console.log('Fetching nodes...');
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('pelican-integration', {
+          body: {
+            action: 'list_nodes'
+          }
+        });
 
-      if (error) {
-        console.error('Error fetching nodes:', error);
-        throw error;
-      }
-      
-      const nodeData = data?.data || [];
-      
-      // Get server allocation data for each node
-      const nodesWithUsage = await Promise.all(
-        nodeData.map(async (node: Node) => {
-          const { data: servers } = await supabase
-            .from('servers')
-            .select('ram_mb, cpu_pct, disk_mb, status, name')
-            .eq('node_id', node.id.toString());
-          
-          const activeServers = servers?.filter(s => s.status === 'running').length || 0;
-          const totalServers = servers?.length || 0;
-          const allocatedRam = servers?.reduce((sum, s) => sum + (s.ram_mb || 0), 0) || 0;
-          const allocatedCpu = servers?.reduce((sum, s) => sum + (s.cpu_pct || 0), 0) || 0;
-          const allocatedDisk = servers?.reduce((sum, s) => sum + (s.disk_mb || 0), 0) || 0;
-          
-          return {
-            ...node,
-            usage: {
-              activeServers,
-              totalServers,
-              allocatedRam,
-              allocatedCpu,
-              allocatedDisk,
-              serverNames: servers?.map(s => s.name) || []
+        console.log('Pelican response:', data);
+        console.log('Pelican error:', error);
+
+        if (error) {
+          console.error('Error fetching nodes:', error);
+          throw error;
+        }
+        
+        const nodeData = data?.data || data || [];
+        console.log('Node data:', nodeData);
+        
+        if (!Array.isArray(nodeData)) {
+          console.warn('Node data is not an array:', nodeData);
+          return [];
+        }
+        
+        // Get server allocation data for each node
+        const nodesWithUsage = await Promise.all(
+          nodeData.map(async (node: Node) => {
+            try {
+              const { data: servers } = await supabase
+                .from('servers')
+                .select('ram_mb, cpu_pct, disk_mb, status, name')
+                .eq('node_id', node.id.toString());
+              
+              const activeServers = servers?.filter(s => s.status === 'running').length || 0;
+              const totalServers = servers?.length || 0;
+              const allocatedRam = servers?.reduce((sum, s) => sum + (s.ram_mb || 0), 0) || 0;
+              const allocatedCpu = servers?.reduce((sum, s) => sum + (s.cpu_pct || 0), 0) || 0;
+              const allocatedDisk = servers?.reduce((sum, s) => sum + (s.disk_mb || 0), 0) || 0;
+              
+              return {
+                ...node,
+                usage: {
+                  activeServers,
+                  totalServers,
+                  allocatedRam,
+                  allocatedCpu,
+                  allocatedDisk,
+                  serverNames: servers?.map(s => s.name) || []
+                }
+              };
+            } catch (serverError) {
+              console.warn('Error fetching servers for node:', node.id, serverError);
+              return {
+                ...node,
+                usage: {
+                  activeServers: 0,
+                  totalServers: 0,
+                  allocatedRam: 0,
+                  allocatedCpu: 0,
+                  allocatedDisk: 0,
+                  serverNames: []
+                }
+              };
             }
-          };
-        })
-      );
-      
-      return nodesWithUsage;
+          })
+        );
+        
+        return nodesWithUsage;
+      } catch (apiError) {
+        console.error('API call failed:', apiError);
+        throw apiError;
+      }
     },
     enabled: !!user && !!userProfile,
     refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2,
   });
 
   useEffect(() => {
@@ -129,6 +161,11 @@ const Nodes = () => {
         {/* Node Grid */}
         {isLoading ? (
           <div className="text-center py-8">Loading nodes...</div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-red-400 mb-2">Error loading nodes: {error.message}</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
         ) : !nodes || nodes.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">No nodes available.</p>
