@@ -203,6 +203,52 @@ serve(async (req) => {
       })
     }
 
+    if (action === 'sync_all_servers') {
+      console.log('Syncing all server statuses from Pelican...')
+      
+      // Get all servers from database
+      const { data: dbServers } = await supabase
+        .from('servers')
+        .select('id, pelican_server_id, node_id')
+        .not('pelican_server_id', 'is', null)
+
+      if (dbServers) {
+        for (const dbServer of dbServers) {
+          try {
+            // Get server status from Pelican
+            const response = await fetch(`${pelicanApiUrl}/servers/${dbServer.pelican_server_id}`, {
+              headers: {
+                'Authorization': `Bearer ${pelicanApiKey}`,
+                'Accept': 'application/json'
+              }
+            })
+
+            if (response.ok) {
+              const data = await response.json()
+              const server = data.attributes
+              
+              // Update server status in database
+              await supabase
+                .from('servers')
+                .update({ 
+                  status: server.status || 'unknown',
+                  cpu_usage: server.resources?.cpu ? `${Math.round(server.resources.cpu)}%` : '0%',
+                  memory_usage: server.resources?.memory ? `${Math.round(server.resources.memory / 1024 / 1024)}MB` : '0MB',
+                  uptime: server.resources?.uptime ? `${Math.floor(server.resources.uptime / 86400)} days` : '0 days'
+                })
+                .eq('id', dbServer.id)
+            }
+          } catch (error) {
+            console.error(`Failed to sync server ${dbServer.pelican_server_id}:`, error)
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, synced: dbServers?.length || 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     if (action === 'control_server') {
       // Control server power (start/stop/restart)
       const powerAction = serverData.power_action // 'start', 'stop', 'restart'

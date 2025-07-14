@@ -70,6 +70,11 @@ const Nodes = () => {
           return [];
         }
         
+        // Sync server statuses first
+        await supabase.functions.invoke('pelican-integration', {
+          body: { action: 'sync_all_servers' }
+        });
+
         // Get server allocation data for each node
         const nodesWithUsage = await Promise.all(
           nodeData.map(async (node: Node) => {
