@@ -18,7 +18,151 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const authHeader = req.headers.get('Authorization')!
+    const url = new URL(req.url)
+    const action = url.searchParams.get('action') || 'webhook'
+
+    // Handle Forpsi webhook (no auth required)
+    if (action === 'webhook') {
+      const webhookData = await req.json()
+      
+      console.log('Received Forpsi webhook:', webhookData)
+
+      // Verify webhook secret (if provided)
+      const webhookSecret = req.headers.get('X-Forpsi-Signature')
+      if (webhookSecret) {
+        console.log('Webhook signature:', webhookSecret)
+      }
+
+      // Process the webhook data
+      const {
+        order_id,
+        customer_email,
+        customer_first_name,
+        customer_last_name,
+        service_type,
+        package_name,
+        resources,
+        payment_status,
+        payment_amount,
+        period,
+        expiration_date
+      } = webhookData
+
+      // Create user account if doesn't exist
+      let userId = null
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('auth_id')
+        .eq('email', customer_email)
+        .single()
+
+      if (!existingProfile) {
+        // Generate password
+        const password = generateRandomPassword()
+        
+        // Create user in Supabase Auth
+        const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
+          email: customer_email,
+          password: password,
+          email_confirm: true
+        })
+
+        if (authError) {
+          console.error('Failed to create user:', authError)
+          return new Response(JSON.stringify({ error: authError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            auth_id: newUser.user.id,
+            email: customer_email,
+            first_name: customer_first_name,
+            last_name: customer_last_name,
+            role: 'user'
+          })
+
+        if (profileError) {
+          console.error('Failed to create profile:', profileError)
+          return new Response(JSON.stringify({ error: profileError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        userId = newUser.user.id
+
+        // Create user in Pelican
+        const pelicanUserResponse = await fetch(`${Deno.env.get('PELICAN_API_URL')}/api/application/users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('PELICAN_API_KEY')}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            email: customer_email,
+            username: customer_email.split('@')[0],
+            first_name: customer_first_name,
+            last_name: customer_last_name,
+            password: password
+          })
+        })
+
+        if (pelicanUserResponse.ok) {
+          const pelicanUserData = await pelicanUserResponse.json()
+          console.log('Created Pelican user:', pelicanUserData)
+        }
+      } else {
+        userId = existingProfile.auth_id
+      }
+
+      // Create or update order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .upsert({
+          user_id: userId,
+          order_id: order_id,
+          service: package_name,
+          amount: payment_amount,
+          period: period,
+          status: payment_status === 'paid' ? 'paid' : 'pending',
+          forpsi_order_id: order_id
+        })
+        .select()
+        .single()
+
+      if (orderError) {
+        console.error('Failed to create order:', orderError)
+        return new Response(JSON.stringify({ error: orderError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // If order is paid, trigger automatic provisioning
+      if (payment_status === 'paid') {
+        await autoProvisionServer(supabase, order, userId, resources)
+      }
+
+      return new Response(JSON.stringify({ success: true, order }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // For other actions, require authentication
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Authorization required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const token = authHeader.replace('Bearer ', '')
     const { data: { user } } = await supabase.auth.getUser(token)
 
@@ -29,7 +173,8 @@ serve(async (req) => {
       })
     }
 
-    const { action, orderData } = await req.json()
+    const { action: reqAction, orderData } = await req.json()
+    const finalAction = reqAction || action
 
     // Get Forpsi API key
     const { data: apiKeyData } = await supabase
@@ -131,3 +276,105 @@ serve(async (req) => {
     })
   }
 })
+
+// Helper function to auto-provision server
+async function autoProvisionServer(supabase: any, order: any, userId: string, resources: any) {
+  try {
+    console.log('Starting auto-provisioning for order:', order.id)
+
+    // Find a free node
+    const { data: reservations } = await supabase
+      .from('node_reservations')
+      .select('node_id')
+
+    const reservedNodeIds = reservations?.map((r: any) => r.node_id) || []
+
+    // Get available nodes from Pelican
+    const pelicanResponse = await fetch(`${Deno.env.get('PELICAN_API_URL')}/api/application/nodes`, {
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('PELICAN_API_KEY')}`,
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!pelicanResponse.ok) {
+      console.error('Failed to fetch nodes from Pelican')
+      return
+    }
+
+    const pelicanData = await pelicanResponse.json()
+    const availableNodes = pelicanData.data.filter((node: any) => 
+      !reservedNodeIds.includes(node.attributes.id.toString())
+    )
+
+    if (availableNodes.length === 0) {
+      console.error('No available nodes for provisioning')
+      return
+    }
+
+    // Select the first available node
+    const selectedNode = availableNodes[0]
+    
+    // Reserve the node
+    await supabase
+      .from('node_reservations')
+      .insert({
+        node_id: selectedNode.attributes.id.toString(),
+        user_id: userId,
+        order_id: order.id
+      })
+
+    // Update node description in Pelican
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, email')
+      .eq('auth_id', userId)
+      .single()
+
+    if (userProfile) {
+      const description = `Auto-provisioned for ${userProfile.first_name} ${userProfile.last_name} (${userProfile.email})`
+      
+      await fetch(`${Deno.env.get('PELICAN_API_URL')}/api/application/nodes/${selectedNode.attributes.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('PELICAN_API_KEY')}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          description
+        })
+      })
+    }
+
+    // Create server via Pelican integration
+    await supabase.functions.invoke('pelican-integration', {
+      body: {
+        action: 'create_server',
+        serverData: {
+          name: `${userProfile?.first_name || 'User'}'s Server`,
+          server_id: order.id,
+          memory: resources?.memory || 1024,
+          cpu: resources?.cpu || 100,
+          disk: resources?.disk || 2048
+        },
+        userId: userId
+      }
+    })
+
+    console.log('Auto-provisioning completed for order:', order.id)
+
+  } catch (error) {
+    console.error('Auto-provisioning failed:', error)
+  }
+}
+
+// Helper function to generate random password
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let password = ''
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return password
+}

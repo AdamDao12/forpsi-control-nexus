@@ -92,6 +92,48 @@ export type Database = {
         }
         Relationships: []
       }
+      node_reservations: {
+        Row: {
+          id: string
+          node_id: string
+          order_id: string
+          reserved_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          node_id: string
+          order_id: string
+          reserved_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          node_id?: string
+          order_id?: string
+          reserved_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_reservations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_reservations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["auth_id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           amount: number
@@ -304,7 +346,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin_user: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
