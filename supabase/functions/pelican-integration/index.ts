@@ -150,138 +150,157 @@ serve(async (req) => {
     }
 
     if (action === 'create_server') {
-      log('INFO', 'Creating server', { serverData });
+      log('INFO', 'Creating server with data', { serverData });
       
       try {
-        let serverConfig = serverData
+        // Build server configuration from form data
+        const serverConfig = {
+          server_name: serverData.name,
+          user_id: parseInt(userId),
+          egg_id: parseInt(serverData.eggId || 1),
+          node_id: parseInt(serverData.nodeId),
+          ram: parseInt(serverData.memory || 1024),
+          disk: parseInt(serverData.disk || 2048),
+          cpu: parseInt(serverData.cpu || 100),
+          environment: serverData.environment || {},
+          docker_image: serverData.docker_image || "ghcr.io/pterodactyl/yolks:java_17",
+          startup: serverData.startup || "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar nogui"
+        };
 
-        // If calloutId is provided, get the callout configuration
-        if (calloutId) {
-          const { data: callout } = await supabase
-            .from('callouts')
-            .select('*')
-            .eq('id', calloutId)
-            .eq('is_active', true)
-            .single()
+        // Validate required fields
+        if (!serverConfig.server_name || !serverConfig.node_id) {
+          throw new Error('Missing required fields: server_name or node_id');
+        }
 
-          if (callout) {
-            serverConfig = {
-              name: serverData.name,
-              memory: callout.default_ram,
-              cpu: callout.default_cpu,
-              disk: callout.default_disk,
-              egg_id: callout.egg_id,
-              docker_image: callout.docker_image,
-              startup: callout.startup_command,
-              environment: callout.environment || {},
-              node_id: callout.node_id
+        // Generate external ID
+        const externalId = `nexus-${serverConfig.user_id}-${crypto.randomUUID()}`;
+        
+        // Build payload exactly as specified in documentation
+        const payload = {
+          "name": serverConfig.server_name,
+          "external_id": externalId,
+          "description": "Created via Nexus",
+          "user": serverConfig.user_id,
+          "egg": serverConfig.egg_id,
+          "docker_image": serverConfig.docker_image,
+          "startup": serverConfig.startup,
+          "environment": serverConfig.environment, // dict, not list
+          "skip_scripts": false,
+          "start_on_completion": true,
+          "limits": {
+            "memory": serverConfig.ram,
+            "swap": -1,
+            "disk": serverConfig.disk,
+            "io": 500,
+            "cpu": serverConfig.cpu
+          },
+          "feature_limits": { 
+            "databases": 1, 
+            "allocations": 1, 
+            "backups": 5 
+          },
+          "deploy": { 
+            "locations": [serverConfig.node_id], 
+            "dedicated_ip": false, 
+            "port_range": [] 
+          }
+        };
+
+        log('INFO', 'Server creation payload', { 
+          name: payload.name,
+          user: payload.user,
+          egg: payload.egg,
+          memory: payload.limits.memory,
+          locations: payload.deploy.locations
+        });
+
+        // Retry logic - max 2 retries for network errors
+        let lastError: any = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            log('INFO', `Server creation attempt ${attempt}/3`);
+            
+            const { response, data: pelicanData } = await makeApiRequest(`${pelicanApiUrl}/servers`, {
+              method: 'POST',
+              body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+              log('INFO', 'Server created successfully', { 
+                serverId: pelicanData.attributes.id,
+                serverName: pelicanData.attributes.name,
+                attempt: attempt
+              });
+              
+              // Update server record with Pelican server ID and configuration
+              await supabase
+                .from('servers')
+                .update({ 
+                  pelican_server_id: pelicanData.attributes.id.toString(),
+                  status: 'installing',
+                  ram_mb: serverConfig.ram,
+                  cpu_pct: serverConfig.cpu,
+                  disk_mb: serverConfig.disk,
+                  egg_id: serverConfig.egg_id
+                })
+                .eq('id', serverData.server_id);
+
+              return new Response(JSON.stringify(pelicanData), {
+                status: 200,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            } else {
+              // HTTP error from Pelican
+              const errorText = await response.text();
+              log('ERROR', 'Pelican API error', {
+                status: response.status,
+                statusText: response.statusText,
+                detail: errorText,
+                payload: payload,
+                attempt: attempt
+              });
+              
+              if (attempt === 3) {
+                return new Response(
+                  JSON.stringify({ 
+                    error: `Pelican returned ${response.status}. Check logs for details.`,
+                    details: errorText
+                  }),
+                  { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+            }
+          } catch (networkError: any) {
+            lastError = networkError;
+            log('WARN', `Network error on attempt ${attempt}`, { 
+              error: networkError.message,
+              willRetry: attempt < 3
+            });
+            
+            if (attempt < 3) {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
           }
         }
 
-        // Validate required fields
-        if (!serverConfig.name || !serverConfig.nodeId) {
-          throw new Error('Missing required fields: name or nodeId');
-        }
-
-        // Get egg information to use proper docker image and startup command
-        let eggData = null;
-        if (serverConfig.eggId) {
-          try {
-            const { response: eggResponse, data: eggResponseData } = await makeApiRequest(
-              `${pelicanApiUrl}/eggs/${serverConfig.eggId}`
-            );
-            eggData = eggResponseData.attributes;
-            log('INFO', 'Retrieved egg data', { eggId: serverConfig.eggId, eggName: eggData?.name });
-          } catch (error) {
-            log('WARN', 'Failed to fetch egg data, using defaults', { eggId: serverConfig.eggId, error: error.message });
-          }
-        }
-
-        // Create server payload matching curl request exactly
-        const serverPayload = {
-          "external_id": serverConfig.name,
-          "name": serverConfig.name,
-          "description": `Server created for ${serverConfig.name}`,
-          "user": parseInt(userId),
-          "egg": parseInt(serverConfig.eggId || 1),
-          "docker_image": eggData?.docker_image || "ghcr.io/pelican-dev/yolks:nodejs_18",
-          "startup": eggData?.startup || "if [[ -d .git ]] && [[ \"{{AUTO_UPDATE}}\" == \"1\" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; /usr/local/bin/node /home/container/{{JS_FILE}}",
-          "environment": Object.keys(eggData?.relationships?.variables?.data?.reduce((env: any, variable: any) => {
-            env[variable.attributes.env_variable] = variable.attributes.default_value || "";
-            return env;
-          }, {}) || {}).map(key => `${key}=${(eggData?.relationships?.variables?.data?.reduce((env: any, variable: any) => {
-            env[variable.attributes.env_variable] = variable.attributes.default_value || "";
-            return env;
-          }, {}) || {})[key]}`),
-          "skip_scripts": false,
-          "oom_killer": true,
-          "start_on_completion": true,
-          "limits": {
-            "memory": parseInt(serverConfig.memory || 1024),
-            "swap": -1,
-            "disk": parseInt(serverConfig.disk || 2048),
-            "io": 500,
-            "threads": null,
-            "cpu": parseInt(serverConfig.cpu || 100)
-          },
-          "feature_limits": {
-            "databases": 0,
-            "allocations": 1,
-            "backups": 0
-          },
-          "allocation": {
-            "default": null,
-            "additional": []
-          },
-          "deploy": {
-            "locations": [parseInt(serverConfig.nodeId)],
-            "tags": [],
-            "dedicated_ip": false,
-            "port_range": []
-          }
-        };
-        
-        log('INFO', 'Server creation payload prepared', { 
-          name: serverPayload.name,
-          egg: serverPayload.egg,
-          dockerImage: serverPayload.docker_image,
-          memory: serverPayload.limits.memory,
-          node: serverPayload.deploy.locations[0]
+        // All retries failed
+        log('ERROR', 'All server creation attempts failed', { 
+          error: lastError?.message,
+          stack: lastError?.stack
         });
         
-        // Create server using enhanced request wrapper
-        const { response, data: pelicanData } = await makeApiRequest(`${pelicanApiUrl}/servers`, {
-          method: 'POST',
-          body: JSON.stringify(serverPayload)
-        });
-        
-        if (response.ok) {
-          log('INFO', 'Server created successfully', { 
-            serverId: pelicanData.attributes.id,
-            serverName: pelicanData.attributes.name 
-          });
-          
-          // Update server record with Pelican server ID and configuration
-          await supabase
-            .from('servers')
-            .update({ 
-              pelican_server_id: pelicanData.attributes.id.toString(),
-              status: 'installing',
-              ram_mb: serverConfig.memory || 1024,
-              cpu_pct: serverConfig.cpu || 100,
-              disk_mb: serverConfig.disk || 2048,
-              egg_id: serverConfig.eggId || 1
-            })
-            .eq('id', serverData.server_id);
-        }
+        return new Response(
+          JSON.stringify({ error: "Pelican API unreachable after 3 attempts" }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
 
-        return new Response(JSON.stringify(pelicanData), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      } catch (error: any) {
+        log('ERROR', 'Server creation failed with exception', { 
+          error: error.message, 
+          stack: error.stack,
+          serverData: serverData
         });
-      } catch (error) {
-        log('ERROR', 'Server creation failed', { error: error.message, stack: error.stack });
         return new Response(
           JSON.stringify({ error: error.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
