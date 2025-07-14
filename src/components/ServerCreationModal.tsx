@@ -15,7 +15,7 @@ interface ServerCreationModalProps {
 }
 
 export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: ServerCreationModalProps) => {
-  console.log('ServerCreationModal render - isOpen:', isOpen);
+  console.log('🔧 ServerCreationModal render - isOpen:', isOpen);
   
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -72,18 +72,22 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submit started');
-    console.log('Form data:', formData);
+    console.log('🚀 Form submit started');
+    console.log('🚀 Form data:', formData);
     setIsLoading(true);
 
     try {
       // Get current user
+      console.log('🔑 Getting current user...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
+        console.error('❌ User authentication failed:', userError);
         throw new Error('User not authenticated');
       }
+      console.log('✅ User authenticated:', user.id);
 
       // First create server record in database
+      console.log('💾 Creating server record in database...');
       const { data: newServer, error: dbError } = await supabase
         .from('servers')
         .insert({
@@ -99,9 +103,14 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('❌ Database error:', dbError);
+        throw dbError;
+      }
+      console.log('✅ Server record created:', newServer);
 
       // Then call Pelican integration to create the actual server
+      console.log('🐦 Calling Pelican integration...');
       const { data, error } = await supabase.functions.invoke('pelican-integration', {
         body: {
           action: 'create_server',
@@ -116,16 +125,16 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
       });
 
       if (error) {
-        console.error('Pelican integration error:', error);
+        console.error('❌ Pelican integration error:', error);
         throw new Error(`Failed to create server: ${error.message || 'Unknown error'}`);
       }
 
       if (!data || data.error) {
-        console.error('Pelican API error:', data);
+        console.error('❌ Pelican API error:', data);
         throw new Error(`Server creation failed: ${data?.error || 'Unknown error from Pelican API'}`);
       }
 
-      console.log('Server created successfully:', data);
+      console.log('✅ Server created successfully:', data);
 
       toast({
         title: "Server Created", 
@@ -146,7 +155,8 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         location: "default"
       });
     } catch (error: any) {
-      console.error('Server creation failed:', error);
+      console.error('💥 Server creation failed:', error);
+      console.error('💥 Error stack:', error.stack);
       toast({
         title: "Server Creation Failed",
         description: error.message || "Failed to create server. Please try again.",

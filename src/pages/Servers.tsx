@@ -115,7 +115,9 @@ const Servers = () => {
   });
 
   const handleCreateServer = () => {
+    console.log('🎯 Create server button clicked');
     setShowCreateModal(true);
+    console.log('🎯 Modal state set to true');
   };
 
   const handleToggleServer = (server: Server) => {
