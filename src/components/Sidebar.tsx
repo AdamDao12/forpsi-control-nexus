@@ -50,21 +50,55 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         {!collapsed && (
           <div className="flex items-center space-x-2">
-            <img 
-              src="/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png" 
-              alt="Forpsi Logo" 
-              className="w-8 h-8 object-contain"
-            />
+            <div 
+              className="w-8 h-8 bg-cover bg-center bg-no-repeat rounded-sm" 
+              style={{
+                backgroundImage: `url('/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png')`,
+                backgroundColor: '#1e40af'
+              }}
+              onError={(e) => {
+                console.log('Logo failed to load');
+                e.currentTarget.style.backgroundImage = 'none';
+                e.currentTarget.innerHTML = '<span class="text-white font-bold text-sm flex items-center justify-center w-full h-full">F</span>';
+              }}
+            >
+              <img 
+                src="/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png" 
+                alt="Forpsi Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  console.log('Logo image failed to load, hiding img element');
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
             <span className="text-lg font-semibold text-sidebar-foreground">Forpsi</span>
           </div>
         )}
         {collapsed && (
           <div className="flex items-center justify-center">
-            <img 
-              src="/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png" 
-              alt="Forpsi Logo" 
-              className="w-8 h-8 object-contain"
-            />
+            <div 
+              className="w-8 h-8 bg-cover bg-center bg-no-repeat rounded-sm" 
+              style={{
+                backgroundImage: `url('/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png')`,
+                backgroundColor: '#1e40af'
+              }}
+              onError={(e) => {
+                console.log('Logo failed to load');
+                e.currentTarget.style.backgroundImage = 'none';
+                e.currentTarget.innerHTML = '<span class="text-white font-bold text-sm flex items-center justify-center w-full h-full">F</span>';
+              }}
+            >
+              <img 
+                src="/lovable-uploads/bcb82ed0-237c-41c0-a854-3ef81732f370.png" 
+                alt="Forpsi Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  console.log('Logo image failed to load, hiding img element');
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
           </div>
         )}
         <button
