@@ -32,18 +32,54 @@ const Servers = () => {
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
+      // Fetch servers from database first
+      const { data: dbServers, error: dbError } = await supabase
         .from('servers')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching servers:', error);
-        throw error;
+      if (dbError) {
+        console.error('Error fetching servers from DB:', dbError);
+        throw dbError;
       }
-      return data as Server[];
+
+      // Also fetch real-time data from Pelican API
+      try {
+        const { data: pelicanData, error: pelicanError } = await supabase.functions.invoke('pelican-integration', {
+          body: {
+            action: 'list_servers'
+          }
+        });
+
+        if (!pelicanError && pelicanData?.data) {
+          // Merge Pelican data with database data
+          const updatedServers = dbServers.map(dbServer => {
+            const pelicanServer = pelicanData.data.find((ps: any) => 
+              ps.attributes.id.toString() === dbServer.pelican_server_id
+            );
+            
+            if (pelicanServer) {
+              return {
+                ...dbServer,
+                status: pelicanServer.attributes.status || dbServer.status,
+                cpu_usage: pelicanServer.attributes.resources?.cpu ? `${Math.round(pelicanServer.attributes.resources.cpu)}%` : dbServer.cpu_usage,
+                memory_usage: pelicanServer.attributes.resources?.memory ? `${Math.round(pelicanServer.attributes.resources.memory / 1024 / 1024)}MB` : dbServer.memory_usage,
+                uptime: pelicanServer.attributes.resources?.uptime ? `${Math.floor(pelicanServer.attributes.resources.uptime / 86400)} days` : dbServer.uptime
+              };
+            }
+            return dbServer;
+          });
+          
+          return updatedServers;
+        }
+      } catch (error) {
+        console.warn('Could not fetch Pelican data:', error);
+      }
+
+      return dbServers as Server[];
     },
     enabled: !!user,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const createServerMutation = useMutation({

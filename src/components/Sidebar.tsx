@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   Settings,
   Code,
-  LogOut
+  LogOut,
+  Database
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -24,6 +25,7 @@ interface SidebarProps {
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Server, label: "Servers", path: "/servers" },
+  { icon: Database, label: "Nodes", path: "/nodes" },
   { icon: ShoppingCart, label: "Orders", path: "/orders" },
   { icon: Users, label: "Users", path: "/users" },
   { icon: User, label: "Profile", path: "/profile" },
