@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { Server, Plus, Power, Settings, MoreHorizontal } from "lucide-react";
+import { Server, Plus, Power, Settings, MoreHorizontal, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -120,9 +120,48 @@ const Servers = () => {
     console.log('🎯 Modal state set to true');
   };
 
+  const deleteServerMutation = useMutation({
+    mutationFn: async (serverId: string) => {
+      const server = servers?.find(s => s.id === serverId);
+      if (!server?.pelican_server_id) {
+        throw new Error('Server not found or no Pelican ID');
+      }
+
+      const { data, error } = await supabase.functions.invoke('pelican-integration', {
+        body: {
+          action: 'delete_server',
+          serverData: { pelican_server_id: server.pelican_server_id }
+        }
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      toast({
+        title: "Server Deleted",
+        description: "Server has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete server",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleToggleServer = (server: Server) => {
     const action = server.status === 'running' ? 'stop' : 'start';
     toggleServerMutation.mutate({ serverId: server.id, action });
+  };
+
+  const handleDeleteServer = (serverId: string) => {
+    if (confirm('Are you sure you want to delete this server? This action cannot be undone.')) {
+      deleteServerMutation.mutate(serverId);
+    }
   };
 
   useEffect(() => {
@@ -230,9 +269,17 @@ const Servers = () => {
                        server.status === 'running' ? 'Stop' : 'Start'}
                     </span>
                   </button>
-                  <button className="flex-1 bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-4 py-2 font-medium flex items-center justify-center space-x-2">
+                  <button className="bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-4 py-2 font-medium flex items-center justify-center space-x-2">
                     <Settings className="w-4 h-4" />
                     <span>Configure</span>
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteServer(server.id)}
+                    disabled={deleteServerMutation.isPending}
+                    className="bg-destructive hover:bg-destructive/80 text-destructive-foreground transition-colors rounded-lg px-4 py-2 font-medium flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>

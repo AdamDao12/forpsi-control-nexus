@@ -50,6 +50,26 @@ serve(async (req) => {
 
     let pelicanResponse
 
+    if (action === 'list_eggs') {
+      console.log('Fetching eggs from:', `${pelicanApiUrl}/eggs`)
+      
+      // List all eggs (games) from Pelican
+      pelicanResponse = await fetch(`${pelicanApiUrl}/eggs`, {
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      const responseData = await pelicanResponse.json()
+      console.log('Pelican eggs response:', JSON.stringify(responseData, null, 2))
+
+      return new Response(JSON.stringify(responseData), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (action === 'create_server') {
       let serverConfig = serverData
 
@@ -84,35 +104,45 @@ serve(async (req) => {
         throw new Error('Missing required fields: name or node_id')
       }
 
-      // Create server in Pelican panel
+      // Create server in Pelican panel - using exact curl structure
       const serverPayload = {
-        name: serverConfig.name,
-        user: parseInt(userId), // User ID as number
-        egg: parseInt(serverConfig.eggId || serverConfig.egg_id || 1), // Egg ID as number
-        docker_image: serverConfig.docker_image || 'quay.io/pelican-dev/yolks:nodejs_18',
-        startup: serverConfig.startup || 'npm start',
-        environment: serverConfig.environment || {},
-        limits: {
-          memory: parseInt(serverConfig.memory || 1024),
-          swap: -1,
-          disk: parseInt(serverConfig.disk || 2048),
-          io: 500,
-          cpu: parseInt(serverConfig.cpu || 100)
+        "external_id": serverConfig.server_id || serverConfig.name,
+        "name": serverConfig.name,
+        "description": `Server created for ${serverConfig.name}`,
+        "user": parseInt(userId),
+        "egg": parseInt(serverConfig.eggId || serverConfig.egg_id || 1),
+        "docker_image": "string",
+        "startup": "string", 
+        "environment": [],
+        "skip_scripts": true,
+        "oom_killer": true,
+        "start_on_completion": true,
+        "limits": {
+          "memory": parseInt(serverConfig.memory || 1024),
+          "swap": -1,
+          "disk": parseInt(serverConfig.disk || 2048),
+          "io": 0,
+          "threads": "string",
+          "cpu": parseInt(serverConfig.cpu || 100)
         },
-        feature_limits: {
-          databases: 2,
-          allocations: 1,
-          backups: 3
+        "feature_limits": {
+          "databases": 0,
+          "allocations": 0,
+          "backups": 0
         },
-        allocation: {
-          default: (serverConfig.port || 25565).toString()
+        "allocation": {
+          "default": "string",
+          "additional": []
         },
-        deploy: {
-          locations: [parseInt(serverConfig.nodeId || serverConfig.node_id)]
+        "deploy": {
+          "locations": [parseInt(serverConfig.nodeId || serverConfig.node_id)],
+          "tags": [],
+          "dedicated_ip": true,
+          "port_range": []
         }
       }
       
-      console.log('Server payload:', JSON.stringify(serverPayload, null, 2))
+      console.log('🚀 Server payload (exact curl format):', JSON.stringify(serverPayload, null, 2))
       
       pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
         method: 'POST',
@@ -268,6 +298,34 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify(pelicanData), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'delete_server') {
+      console.log('Deleting server:', serverData.pelican_server_id)
+      
+      // Delete server from Pelican
+      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      console.log('Delete response status:', pelicanResponse.status)
+      
+      if (pelicanResponse.ok) {
+        // Also delete from database
+        await supabase
+          .from('servers')
+          .delete()
+          .eq('pelican_server_id', serverData.pelican_server_id)
+      }
+
+      return new Response(JSON.stringify({ success: pelicanResponse.ok }), {
         status: pelicanResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

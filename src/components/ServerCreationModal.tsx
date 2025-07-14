@@ -50,20 +50,21 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     enabled: isOpen,
   });
 
-  // Fetch available callouts (game templates)
-  const { data: callouts = [] } = useQuery({
-    queryKey: ['callouts-for-creation'],
+  // Fetch available eggs (games)
+  const { data: eggs = [] } = useQuery({
+    queryKey: ['eggs-for-creation'],
     queryFn: async () => {
+      console.log('🎮 Fetching eggs (games) from Pelican...');
       try {
-        const { data, error } = await supabase
-          .from('callouts')
-          .select('*')
-          .eq('is_active', true)
-          .order('label');
+        const { data, error } = await supabase.functions.invoke('pelican-integration', {
+          body: { action: 'list_eggs' }
+        });
+        console.log('🎮 Eggs response:', data);
+        console.log('🎮 Eggs error:', error);
         if (error) throw error;
-        return data || [];
+        return data?.data || data || [];
       } catch (error) {
-        console.error('Failed to fetch callouts:', error);
+        console.error('Failed to fetch eggs:', error);
         return [];
       }
     },
@@ -219,9 +220,9 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                   <SelectValue placeholder="Select a game template" />
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
-                  {callouts.map((callout: any) => (
-                    <SelectItem key={callout.id} value={callout.egg_id.toString()} className="hover:bg-sidebar-accent">
-                      {callout.label}
+                  {eggs.map((egg: any) => (
+                    <SelectItem key={egg.id || egg.attributes?.id} value={(egg.id || egg.attributes?.id || '').toString()} className="hover:bg-sidebar-accent">
+                      {egg.name || egg.attributes?.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
