@@ -115,10 +115,20 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Pelican integration error:', error);
+        throw new Error(`Failed to create server: ${error.message || 'Unknown error'}`);
+      }
+
+      if (!data || data.error) {
+        console.error('Pelican API error:', data);
+        throw new Error(`Server creation failed: ${data?.error || 'Unknown error from Pelican API'}`);
+      }
+
+      console.log('Server created successfully:', data);
 
       toast({
-        title: "Server Created",
+        title: "Server Created", 
         description: "Your server is being created and will be available shortly.",
       });
       

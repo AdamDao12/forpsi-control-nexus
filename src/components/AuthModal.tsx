@@ -20,7 +20,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [creatingAdmin, setCreatingAdmin] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
 
@@ -48,41 +47,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     setPassword('');
     setFirstName('');
     setLastName('');
-  };
-
-  const createFirstAdmin = async () => {
-    setCreatingAdmin(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-admin');
-      
-      if (error) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({
-        title: "Admin Created!",
-        description: `Admin user created. Email: ${data.credentials.email}, Password: ${data.credentials.password}`,
-      });
-
-      // Auto-fill the form with admin credentials
-      setEmail(data.credentials.email);
-      setPassword(data.credentials.password);
-      setIsSignUp(false);
-
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create admin user",
-        variant: "destructive"
-      });
-    } finally {
-      setCreatingAdmin(false);
-    }
   };
 
   return (
@@ -145,23 +109,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </Button>
-          
-          {!isSignUp && (
-            <div className="border-t pt-4">
-              <p className="text-sm text-muted-foreground mb-2 text-center">
-                First time setup? Create the admin user:
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={createFirstAdmin}
-                disabled={creatingAdmin}
-              >
-                {creatingAdmin ? 'Creating Admin...' : 'Create First Admin User'}
-              </Button>
-            </div>
-          )}
         </form>
       </DialogContent>
     </Dialog>

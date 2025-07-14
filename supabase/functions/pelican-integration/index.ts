@@ -156,45 +156,6 @@ serve(async (req) => {
       console.log('Pelican nodes response:', JSON.stringify(responseData, null, 2))
       console.log('Response status:', pelicanResponse.status)
 
-      // Enrich nodes with real-time usage data
-      if (responseData.data && Array.isArray(responseData.data)) {
-        const enrichedNodes = await Promise.all(
-          responseData.data.map(async (node: any) => {
-            try {
-              // Get real-time node statistics from Wings API  
-              const statsResponse = await fetch(`${node.attributes.scheme}://${node.attributes.fqdn}:${node.attributes.daemon_listen}/api/system`, {
-                headers: {
-                  'Authorization': `Bearer ${pelicanApiKey}`,
-                  'Accept': 'application/json'
-                }
-              })
-              
-              if (statsResponse.ok) {
-                const stats = await statsResponse.json()
-                console.log(`Node ${node.attributes.id} stats:`, stats)
-                
-                // Add real-time usage to node data
-                node.attributes.realtime_usage = {
-                  cpu_percent: stats.cpu_absolute || 0,
-                  memory_bytes: stats.memory_bytes || 0,
-                  memory_limit_bytes: stats.memory_limit_bytes || 0,
-                  disk_bytes: stats.disk_bytes || 0,
-                  network_rx_bytes: stats.network?.rx_bytes || 0,
-                  network_tx_bytes: stats.network?.tx_bytes || 0,
-                  uptime: stats.uptime || 0
-                }
-              }
-            } catch (error) {
-              console.error(`Failed to get stats for node ${node.attributes.id}:`, error)
-            }
-            
-            return node
-          })
-        )
-        
-        responseData.data = enrichedNodes
-      }
-
       return new Response(JSON.stringify(responseData), {
         status: pelicanResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
