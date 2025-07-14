@@ -84,57 +84,7 @@ const Servers = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const createServerMutation = useMutation({
-    mutationFn: async (serverData: { name: string; location: string }) => {
-      if (!user || !userProfile) throw new Error('User not authenticated');
-
-      // First create server record in database
-      const { data: newServer, error: dbError } = await supabase
-        .from('servers')
-        .insert({
-          user_id: user.id,
-          name: serverData.name,
-          location: serverData.location,
-          status: 'creating'
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Then call Pelican integration to create the actual server
-      const { data, error } = await supabase.functions.invoke('pelican-integration', {
-        body: {
-          action: 'create_server',
-          serverData: {
-            ...serverData,
-            server_id: newServer.id,
-            memory: 1024, // Default 1GB
-            disk: 2048,   // Default 2GB
-            cpu: 100      // Default 100%
-          },
-          userId: user.id
-        }
-      });
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] });
-      toast({
-        title: "Server Created",
-        description: "Your server is being created and will be available shortly.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create server",
-        variant: "destructive",
-      });
-    },
-  });
+  // Server creation is handled by the modal
 
   const toggleServerMutation = useMutation({
     mutationFn: async ({ serverId, action }: { serverId: string; action: 'start' | 'stop' }) => {
