@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { ServerCreationModal } from "@/components/ServerCreationModal";
 
 interface Server {
   id: string;
@@ -24,6 +25,7 @@ interface Server {
 const Servers = () => {
   const { user, userProfile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -90,7 +92,7 @@ const Servers = () => {
       const { data: newServer, error: dbError } = await supabase
         .from('servers')
         .insert({
-          user_id: userProfile.id,
+          user_id: user.id,
           name: serverData.name,
           location: serverData.location,
           status: 'creating'
@@ -111,7 +113,7 @@ const Servers = () => {
             disk: 2048,   // Default 2GB
             cpu: 100      // Default 100%
           },
-          userId: userProfile.id
+          userId: user.id
         }
       });
 
@@ -163,12 +165,7 @@ const Servers = () => {
   });
 
   const handleCreateServer = () => {
-    const serverName = prompt("Enter server name:");
-    const location = prompt("Enter location (Prague, Brno, Ostrava):");
-    
-    if (serverName && location) {
-      createServerMutation.mutate({ name: serverName, location });
-    }
+    setShowCreateModal(true);
   };
 
   const handleToggleServer = (server: Server) => {
@@ -210,11 +207,10 @@ const Servers = () => {
           </div>
           <button 
             onClick={handleCreateServer}
-            disabled={createServerMutation.isPending}
             className="forpsi-button-primary flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
-            <span>{createServerMutation.isPending ? 'Creating...' : 'Create Server'}</span>
+            <span>Create Server</span>
           </button>
         </div>
 
@@ -291,6 +287,15 @@ const Servers = () => {
             ))}
           </div>
         )}
+        
+        <ServerCreationModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onServerCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['servers'] });
+            setShowCreateModal(false);
+          }}
+        />
       </div>
     </Layout>
   );

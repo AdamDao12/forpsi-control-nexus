@@ -30,7 +30,7 @@ serve(async (req) => {
     }
 
     const { data: userProfile } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('auth_id', user.id)
       .single()
@@ -49,7 +49,7 @@ serve(async (req) => {
         const { data: newTicket } = await supabase
           .from('tickets')
           .insert({
-            user_id: userProfile.id,
+            user_id: user.id,
             subject: ticketData.subject,
             body: ticketData.body,
             priority: ticketData.priority || 'medium'
@@ -66,12 +66,12 @@ serve(async (req) => {
           .from('tickets')
           .select(`
             *,
-            users!tickets_user_id_fkey (
+            profiles!tickets_user_id_fkey (
               first_name,
               last_name,
               email
             ),
-            assigned_user:users!tickets_assigned_to_fkey (
+            assigned_user:profiles!tickets_assigned_to_fkey (
               first_name,
               last_name,
               email
@@ -81,7 +81,7 @@ serve(async (req) => {
 
         // If not admin, only show user's own tickets
         if (userProfile.role !== 'admin') {
-          query = query.eq('user_id', userProfile.id)
+          query = query.eq('user_id', user.id)
         }
 
         const { data: tickets } = await query
@@ -92,7 +92,7 @@ serve(async (req) => {
 
       case 'update_ticket':
         // Only admins can update tickets or users can update their own
-        if (userProfile.role !== 'admin' && ticketData.user_id !== userProfile.id) {
+        if (userProfile.role !== 'admin' && ticketData.user_id !== user.id) {
           return new Response(JSON.stringify({ error: 'Unauthorized to update this ticket' }), {
             status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

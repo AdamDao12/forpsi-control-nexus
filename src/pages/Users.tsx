@@ -8,10 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { UserEditModal } from "@/components/UserEditModal";
 
 const Users = () => {
   const { user, userProfile, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const { toast } = useToast();
 
   const { data: users, isLoading, refetch } = useQuery({
@@ -169,7 +171,10 @@ const Users = () => {
                 </div>
 
                 <div className="flex space-x-2 pt-4 border-t border-border">
-                  <button className="flex-1 bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-3 py-2 font-medium flex items-center justify-center space-x-2">
+                  <button 
+                    onClick={() => setEditingUser(user)}
+                    className="flex-1 bg-muted hover:bg-muted/80 text-foreground transition-colors rounded-lg px-3 py-2 font-medium flex items-center justify-center space-x-2"
+                  >
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>
                   </button>
@@ -190,6 +195,13 @@ const Users = () => {
             ))}
           </div>
         )}
+        
+        <UserEditModal
+          user={editingUser}
+          isOpen={!!editingUser}
+          onClose={() => setEditingUser(null)}
+          onUserUpdated={refetch}
+        />
       </div>
     </Layout>
   );

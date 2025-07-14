@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { Server, Plus, MoreHorizontal, Cpu, HardDrive, MemoryStick } from "lucide-react";
+import { Server, Plus, MoreHorizontal, Cpu, HardDrive, MemoryStick, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+
+interface NodeUsage {
+  activeServers: number;
+  totalServers: number;
+  allocatedRam: number;
+  allocatedCpu: number;
+  allocatedDisk: number;
+  serverNames: string[];
+}
 
 interface Node {
   id: number;
@@ -24,6 +33,7 @@ interface Node {
   maintenance_mode: boolean;
   created_at: string;
   updated_at: string;
+  usage?: NodeUsage;
 }
 
 const Nodes = () => {
@@ -46,7 +56,37 @@ const Nodes = () => {
         throw error;
       }
       
-      return data?.data || [];
+      const nodeData = data?.data || [];
+      
+      // Get server allocation data for each node
+      const nodesWithUsage = await Promise.all(
+        nodeData.map(async (node: Node) => {
+          const { data: servers } = await supabase
+            .from('servers')
+            .select('ram_mb, cpu_pct, disk_mb, status, name')
+            .eq('node_id', node.id.toString());
+          
+          const activeServers = servers?.filter(s => s.status === 'running').length || 0;
+          const totalServers = servers?.length || 0;
+          const allocatedRam = servers?.reduce((sum, s) => sum + (s.ram_mb || 0), 0) || 0;
+          const allocatedCpu = servers?.reduce((sum, s) => sum + (s.cpu_pct || 0), 0) || 0;
+          const allocatedDisk = servers?.reduce((sum, s) => sum + (s.disk_mb || 0), 0) || 0;
+          
+          return {
+            ...node,
+            usage: {
+              activeServers,
+              totalServers,
+              allocatedRam,
+              allocatedCpu,
+              allocatedDisk,
+              serverNames: servers?.map(s => s.name) || []
+            }
+          };
+        })
+      );
+      
+      return nodesWithUsage;
     },
     enabled: !!user && !!userProfile,
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -125,21 +165,36 @@ const Nodes = () => {
                       <MemoryStick className="w-3 h-3" />
                       <span>Memory</span>
                     </span>
-                    <span className="text-foreground font-medium">{node.memory}MB</span>
+                    <span className="text-foreground font-medium">
+                      {node.usage?.allocatedRam || 0}MB / {node.memory}MB
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground flex items-center space-x-1">
                       <HardDrive className="w-3 h-3" />
                       <span>Disk</span>
                     </span>
-                    <span className="text-foreground font-medium">{node.disk}MB</span>
+                    <span className="text-foreground font-medium">
+                      {node.usage?.allocatedDisk || 0}MB / {node.disk}MB
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground flex items-center space-x-1">
                       <Cpu className="w-3 h-3" />
                       <span>CPU</span>
                     </span>
-                    <span className="text-foreground font-medium">{node.cpu}%</span>
+                    <span className="text-foreground font-medium">
+                      {node.usage?.allocatedCpu || 0}% / {node.cpu}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center space-x-1">
+                      <Users className="w-3 h-3" />
+                      <span>Servers</span>
+                    </span>
+                    <span className="text-foreground font-medium">
+                      {node.usage?.activeServers || 0} / {node.usage?.totalServers || 0}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">FQDN</span>
