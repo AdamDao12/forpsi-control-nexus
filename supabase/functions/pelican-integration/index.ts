@@ -12,6 +12,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const log = (level: string, message: string, data?: any) => {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      ...data
+    };
+    console.log(JSON.stringify(logEntry));
+  };
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -32,35 +42,19 @@ serve(async (req) => {
     const requestBody = await req.json()
     const { action, serverData, userId, calloutId } = requestBody
 
+    log('INFO', 'Pelican Integration Request', { action, userId: user.id });
+
     // Get Pelican API configuration  
     const pelicanApiUrl = Deno.env.get('PELICAN_API_URL') || 'http://81.2.233.110/api/application'
     const pelicanApiKey = Deno.env.get('PELICAN_API_KEY')
 
-    console.log('Pelican API URL:', pelicanApiUrl)
-    console.log('Action requested:', action)
-    console.log('User ID:', user.id)
-    console.log('Request body:', requestBody)
-
     if (!pelicanApiKey) {
+      log('ERROR', 'Pelican API key missing');
       return new Response(JSON.stringify({ error: 'Pelican API key missing' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-
-    let pelicanResponse
-
-    // Enhanced logging function
-    const log = (level: string, message: string, data?: any) => {
-      const logEntry = {
-        timestamp: new Date().toISOString(),
-        level,
-        message,
-        action,
-        ...data
-      };
-      console.log(JSON.stringify(logEntry));
-    };
 
     // Enhanced API request wrapper with proper error handling
     const makeApiRequest = async (url: string, options: RequestInit = {}) => {
@@ -107,6 +101,7 @@ serve(async (req) => {
         throw new Error('Could not contact Pelican – see logs');
       }
     };
+
 
     if (action === 'list_nests') {
       log('INFO', 'Fetching nests with eggs from Pelican');

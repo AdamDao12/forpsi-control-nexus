@@ -123,10 +123,22 @@ const Servers = () => {
   const deleteServerMutation = useMutation({
     mutationFn: async (serverId: string) => {
       const server = servers?.find(s => s.id === serverId);
-      if (!server?.pelican_server_id) {
-        throw new Error('Server not found or no Pelican ID');
+      if (!server) {
+        throw new Error('Server not found');
       }
 
+      // If server has no Pelican ID, just delete from database
+      if (!server.pelican_server_id) {
+        const { error } = await supabase
+          .from('servers')
+          .delete()
+          .eq('id', serverId);
+        
+        if (error) throw error;
+        return { success: true, local_only: true };
+      }
+
+      // Delete from Pelican if it has a pelican_server_id
       const { data, error } = await supabase.functions.invoke('pelican-integration', {
         body: {
           action: 'delete_server',
@@ -137,11 +149,13 @@ const Servers = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] });
       toast({
         title: "Server Deleted",
-        description: "Server has been deleted successfully.",
+        description: data?.local_only 
+          ? "Server has been removed from your account." 
+          : "Server has been deleted successfully.",
       });
     },
     onError: (error: any) => {

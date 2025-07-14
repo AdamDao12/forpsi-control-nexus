@@ -50,7 +50,7 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     enabled: isOpen,
   });
 
-  // Fetch available nests with eggs (games)
+  // Fetch available nests with eggs (games) with fallback to direct eggs
   const { data: nests = [], isLoading: nestsLoading } = useQuery({
     queryKey: ['nests-for-creation'],
     queryFn: async () => {
@@ -64,8 +64,23 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         if (error) throw error;
         return data?.data || data || [];
       } catch (error) {
-        console.error('Failed to fetch nests:', error);
-        return [];
+        console.warn('Failed to fetch nests, trying eggs directly:', error);
+        // Fallback to direct eggs endpoint
+        try {
+          const { data: eggsData, error: eggsError } = await supabase.functions.invoke('pelican-integration', {
+            body: { action: 'list_eggs' }
+          });
+          if (eggsError) throw eggsError;
+          console.log('🎮 Fallback eggs response:', eggsData);
+          // Transform eggs data to match nests structure
+          return [{
+            attributes: { name: 'Available Games' },
+            relationships: { eggs: { data: eggsData?.data || [] } }
+          }];
+        } catch (fallbackError) {
+          console.error('Both nests and eggs failed:', fallbackError);
+          return [];
+        }
       }
     },
     enabled: isOpen,
