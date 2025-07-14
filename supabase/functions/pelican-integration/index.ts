@@ -32,11 +32,11 @@ serve(async (req) => {
     const { action, serverData, userId, calloutId } = await req.json()
 
     // Get Pelican API configuration
-    const pelicanApiUrl = Deno.env.get('PELICAN_API_URL')
+    const pelicanApiUrl = 'http://81.2.233.110/api/application'
     const pelicanApiKey = Deno.env.get('PELICAN_API_KEY')
 
-    if (!pelicanApiUrl || !pelicanApiKey) {
-      return new Response(JSON.stringify({ error: 'Pelican API configuration missing' }), {
+    if (!pelicanApiKey) {
+      return new Response(JSON.stringify({ error: 'Pelican API key missing' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -72,7 +72,7 @@ serve(async (req) => {
       }
 
       // Create server in Pelican panel
-      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers`, {
+      pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${pelicanApiKey}`,
@@ -127,9 +127,39 @@ serve(async (req) => {
       })
     }
 
+    if (action === 'list_nodes') {
+      // List all nodes from Pelican
+      pelicanResponse = await fetch(`${pelicanApiUrl}/nodes`, {
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      return new Response(JSON.stringify(await pelicanResponse.json()), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'list_servers') {
+      // List all servers from Pelican
+      pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
+        headers: {
+          'Authorization': `Bearer ${pelicanApiKey}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      return new Response(JSON.stringify(await pelicanResponse.json()), {
+        status: pelicanResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (action === 'get_server_status') {
       // Get server status from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers/${serverData.pelican_server_id}`, {
+      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
         headers: {
           'Authorization': `Bearer ${pelicanApiKey}`,
           'Accept': 'application/json'
@@ -162,7 +192,7 @@ serve(async (req) => {
       // Control server power (start/stop/restart)
       const powerAction = serverData.power_action // 'start', 'stop', 'restart'
       
-      pelicanResponse = await fetch(`${pelicanApiUrl}/api/client/servers/${serverData.pelican_server_id}/power`, {
+      pelicanResponse = await fetch(`http://81.2.233.110/api/client/servers/${serverData.pelican_server_id}/power`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${pelicanApiKey}`,
@@ -203,7 +233,7 @@ serve(async (req) => {
 
     if (action === 'delete_server') {
       // Delete server from Pelican
-      pelicanResponse = await fetch(`${pelicanApiUrl}/api/application/servers/${serverData.pelican_server_id}`, {
+      pelicanResponse = await fetch(`${pelicanApiUrl}/servers/${serverData.pelican_server_id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${pelicanApiKey}`,
