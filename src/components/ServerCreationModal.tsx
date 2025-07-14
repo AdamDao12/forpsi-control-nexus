@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,26 +50,46 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     enabled: isOpen,
   });
 
-  // Fetch available eggs (games)
-  const { data: eggs = [] } = useQuery({
-    queryKey: ['eggs-for-creation'],
+  // Fetch available nests with eggs (games)
+  const { data: nests = [], isLoading: nestsLoading } = useQuery({
+    queryKey: ['nests-for-creation'],
     queryFn: async () => {
-      console.log('🎮 Fetching eggs (games) from Pelican...');
+      console.log('🥚 Fetching nests with eggs from Pelican...');
       try {
         const { data, error } = await supabase.functions.invoke('pelican-integration', {
-          body: { action: 'list_eggs' }
+          body: { action: 'list_nests' }
         });
-        console.log('🎮 Eggs response:', data);
-        console.log('🎮 Eggs error:', error);
+        console.log('🥚 Nests response:', data);
+        console.log('🥚 Nests error:', error);
         if (error) throw error;
         return data?.data || data || [];
       } catch (error) {
-        console.error('Failed to fetch eggs:', error);
+        console.error('Failed to fetch nests:', error);
         return [];
       }
     },
     enabled: isOpen,
   });
+
+  // Extract all eggs from all nests
+  const eggs = useMemo(() => {
+    if (!nests) return [];
+    
+    const allEggs: any[] = [];
+    nests.forEach((nest: any) => {
+      if (nest.relationships?.eggs?.data) {
+        nest.relationships.eggs.data.forEach((egg: any) => {
+          allEggs.push({
+            ...egg,
+            nestName: nest.attributes.name // Add nest name for context
+          });
+        });
+      }
+    });
+    
+    console.log('🎮 All eggs extracted:', allEggs);
+    return allEggs;
+  }, [nests]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,12 +237,12 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                 required
               >
                 <SelectTrigger className="bg-background border-border">
-                  <SelectValue placeholder="Select a game template" />
+                  <SelectValue placeholder={nestsLoading ? "Loading games..." : "Select a game template"} />
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
                   {eggs.map((egg: any) => (
                     <SelectItem key={egg.id || egg.attributes?.id} value={(egg.id || egg.attributes?.id || '').toString()} className="hover:bg-sidebar-accent">
-                      {egg.name || egg.attributes?.name}
+                      {egg.nestName ? `${egg.nestName} - ${egg.attributes?.name || egg.name}` : (egg.attributes?.name || egg.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
