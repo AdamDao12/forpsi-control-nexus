@@ -32,8 +32,12 @@ serve(async (req) => {
     const { action, serverData, userId, calloutId } = await req.json()
 
     // Get Pelican API configuration
-    const pelicanApiUrl = 'http://81.2.233.110/api/application'
+    const pelicanApiUrl = Deno.env.get('PELICAN_API_URL') || 'http://81.2.233.110/api/application'
     const pelicanApiKey = Deno.env.get('PELICAN_API_KEY')
+
+    console.log('Pelican API URL:', pelicanApiUrl)
+    console.log('Action requested:', action)
+    console.log('User ID:', user.id)
 
     if (!pelicanApiKey) {
       return new Response(JSON.stringify({ error: 'Pelican API key missing' }), {
@@ -128,6 +132,8 @@ serve(async (req) => {
     }
 
     if (action === 'list_nodes') {
+      console.log('Fetching nodes from:', `${pelicanApiUrl}/nodes`)
+      
       // List all nodes from Pelican
       pelicanResponse = await fetch(`${pelicanApiUrl}/nodes`, {
         headers: {
@@ -136,13 +142,19 @@ serve(async (req) => {
         }
       })
 
-      return new Response(JSON.stringify(await pelicanResponse.json()), {
+      const responseData = await pelicanResponse.json()
+      console.log('Pelican nodes response:', JSON.stringify(responseData, null, 2))
+      console.log('Response status:', pelicanResponse.status)
+
+      return new Response(JSON.stringify(responseData), {
         status: pelicanResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     if (action === 'list_servers') {
+      console.log('Fetching servers from:', `${pelicanApiUrl}/servers`)
+      
       // List all servers from Pelican
       pelicanResponse = await fetch(`${pelicanApiUrl}/servers`, {
         headers: {
@@ -151,7 +163,10 @@ serve(async (req) => {
         }
       })
 
-      return new Response(JSON.stringify(await pelicanResponse.json()), {
+      const responseData = await pelicanResponse.json()
+      console.log('Pelican servers response:', JSON.stringify(responseData, null, 2))
+
+      return new Response(JSON.stringify(responseData), {
         status: pelicanResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
