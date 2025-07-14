@@ -168,8 +168,12 @@ serve(async (req) => {
               const wingsUrl = `${nodeAttributes.scheme}://${nodeAttributes.fqdn}:${nodeAttributes.daemon_listen}/api/system?v=2`
               console.log(`Wings API URL: ${wingsUrl}`)
               
-              // Use the node token for Wings authentication (from your config file)
-              const nodeToken = 'yeo5LdDOaNQoiMqL5WCyazX0ywj6jNoDUGfpWcwHiSPVtKI79NVqef2nukWp3FCk'
+              // Get node-specific token from Supabase secrets
+              const nodeToken = Deno.env.get(`NODE_TOKEN_${nodeAttributes.id}`)
+              if (!nodeToken) {
+                console.warn(`No NODE_TOKEN found for node ${nodeAttributes.id}`)
+                return node
+              }
               
               const statsResponse = await fetch(wingsUrl, {
                 headers: {
