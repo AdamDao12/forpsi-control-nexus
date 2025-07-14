@@ -85,14 +85,15 @@ const Admin = () => {
     );
   }
 
-  if (userProfile?.role !== 'admin') {
+  // Check if user has admin access
+  if (userProfile && userProfile.role !== 'admin') {
     return (
       <Layout>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-            <p className="text-muted-foreground">Admin access required to view this page.</p>
+            <p className="text-muted-foreground mb-4">You don't have permission to access the admin panel.</p>
+            <Button onClick={() => window.history.back()}>Go Back</Button>
           </div>
         </div>
       </Layout>

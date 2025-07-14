@@ -21,7 +21,7 @@ const Users = () => {
   const { data: users, isLoading, refetch } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || userProfile?.role !== 'admin') return [];
       
       const { data, error } = await supabase
         .from('profiles')
@@ -34,7 +34,7 @@ const Users = () => {
       }
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && userProfile?.role === 'admin',
   });
 
   const getRoleColor = (role: string) => {
@@ -95,6 +95,21 @@ const Users = () => {
         </Layout>
         <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </>
+    );
+  }
+
+  // Check if user has admin access
+  if (userProfile && userProfile.role !== 'admin') {
+    return (
+      <Layout>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">You don't have permission to access this page.</p>
+            <Button onClick={() => window.history.back()}>Go Back</Button>
+          </div>
+        </div>
+      </Layout>
     );
   }
 

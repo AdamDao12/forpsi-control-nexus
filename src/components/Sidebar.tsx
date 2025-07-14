@@ -23,20 +23,26 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Server, label: "Servers", path: "/servers" },
-  { icon: Database, label: "Nodes", path: "/nodes" },
-  { icon: ShoppingCart, label: "Orders", path: "/orders" },
-  { icon: Users, label: "Users", path: "/users" },
-  { icon: User, label: "Profile", path: "/profile" },
-  { icon: HelpCircle, label: "Support", path: "/support" },
-  { icon: Settings, label: "Admin", path: "/admin" },
-  { icon: Code, label: "API", path: "/api" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", roles: ["user", "admin"] },
+  { icon: Server, label: "Servers", path: "/servers", roles: ["user", "admin"] },
+  { icon: Database, label: "Nodes", path: "/nodes", roles: ["admin"] },
+  { icon: ShoppingCart, label: "Orders", path: "/orders", roles: ["user", "admin"] },
+  { icon: Users, label: "Users", path: "/users", roles: ["admin"] },
+  { icon: User, label: "Profile", path: "/profile", roles: ["user", "admin"] },
+  { icon: HelpCircle, label: "Support", path: "/support", roles: ["user", "admin"] },
+  { icon: Settings, label: "Admin", path: "/admin", roles: ["admin"] },
+  { icon: Code, label: "API", path: "/api", roles: ["admin"] },
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
   const { user, userProfile, signOut } = useAuth();
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (!userProfile) return item.roles.includes("user"); // Default to user access
+    return item.roles.includes(userProfile.role);
+  });
 
   return (
     <div className={`fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border transition-all duration-300 z-50 ${collapsed ? 'w-16' : 'w-64'}`}>
@@ -64,7 +70,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
 
       {/* Menu Items */}
       <nav className="mt-4 px-2">
-        {menuItems.map((item, index) => {
+        {filteredMenuItems.map((item, index) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           return (

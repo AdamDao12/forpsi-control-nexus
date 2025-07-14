@@ -115,7 +115,7 @@ serve(async (req) => {
         // Build server configuration from form data
         const serverConfig = {
           server_name: serverData.name,
-          user_id: 1, // Fixed user ID for Pelican - you may need to map this properly
+          user_id: parseInt(userId) || 1, // Use actual user ID or fallback to 1
           egg_id: parseInt(serverData.eggId || 1),
           node_id: parseInt(serverData.nodeId),
           ram: parseInt(serverData.memory || 1024),
@@ -128,13 +128,25 @@ serve(async (req) => {
 
         log('INFO', 'Server configuration built', { requestId, serverConfig });
 
-        // Validate required fields
-        if (!serverConfig.server_name) {
-          throw new Error('Missing server name');
+        // Validate required fields with better error messages
+        if (!serverConfig.server_name || serverConfig.server_name.trim() === '') {
+          throw new Error('Server name is required and cannot be empty');
         }
         
         if (!serverConfig.node_id || isNaN(serverConfig.node_id)) {
-          throw new Error('Missing or invalid node ID');
+          throw new Error(`Invalid node ID: ${serverData.nodeId}. Please select a valid node.`);
+        }
+
+        if (serverConfig.ram < 256 || serverConfig.ram > 32768) {
+          throw new Error('RAM must be between 256MB and 32GB');
+        }
+
+        if (serverConfig.disk < 512 || serverConfig.disk > 1000000) {
+          throw new Error('Disk space must be between 512MB and 1TB');
+        }
+
+        if (serverConfig.cpu < 25 || serverConfig.cpu > 1000) {
+          throw new Error('CPU allocation must be between 25% and 1000%');
         }
 
         // Generate external ID

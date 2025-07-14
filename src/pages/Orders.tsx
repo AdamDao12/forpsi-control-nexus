@@ -29,7 +29,7 @@ const Orders = () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('user_id', userProfile?.id || '')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -38,12 +38,12 @@ const Orders = () => {
       }
       return data;
     },
-    enabled: !!user && !!userProfile,
+    enabled: !!user,
   });
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: any) => {
-      if (!userProfile) throw new Error('User profile not found');
+      if (!user) throw new Error('User not authenticated');
 
       // Generate order ID
       const orderId = `#ORD-${Date.now().toString().slice(-6)}`;
@@ -51,7 +51,7 @@ const Orders = () => {
       const { data, error } = await supabase
         .from('orders')
         .insert({
-          user_id: userProfile.id,
+          user_id: user.id,
           order_id: orderId,
           service: orderData.service,
           amount: orderData.amount,
