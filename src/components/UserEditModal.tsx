@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
 
 interface UserEditModalProps {
@@ -26,16 +25,12 @@ export const UserEditModal = ({ user, isOpen, onClose, onUserUpdated }: UserEdit
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(formData)
-        .eq('auth_id', user.auth_id);
-
-      if (error) throw error;
+      // Mock user update
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       toast({
         title: "User Updated",
-        description: "User profile has been successfully updated.",
+        description: "User profile has been successfully updated (demo).",
       });
       
       onUserUpdated();

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { X, Key, Mail } from "lucide-react";
 
 interface PasswordManagerProps {
@@ -42,15 +41,12 @@ export const PasswordManager = ({ user, isOpen, onClose }: PasswordManagerProps)
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) throw error;
+      // Mock password change
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       toast({
         title: "Success",
-        description: "Password updated successfully",
+        description: "Password updated successfully (demo)",
       });
       
       onClose();
@@ -73,15 +69,12 @@ export const PasswordManager = ({ user, isOpen, onClose }: PasswordManagerProps)
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/`
-      });
-
-      if (error) throw error;
+      // Mock password reset
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       toast({
         title: "Reset Email Sent",
-        description: "Check your email for password reset instructions",
+        description: "Check your email for password reset instructions (demo)",
       });
       
       onClose();

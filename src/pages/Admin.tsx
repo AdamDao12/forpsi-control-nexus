@@ -3,8 +3,6 @@ import { Layout } from "@/components/Layout";
 import { Shield, Users, Server, Activity, TrendingUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -13,48 +11,23 @@ const Admin = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { toast } = useToast();
 
-  const { data: dashboardStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['admin-dashboard-stats'],
-    queryFn: async () => {
-      if (!user || userProfile?.role !== 'admin') return null;
+  // Mock data for demo
+  const mockDashboardStats = {
+    totalUsers: 156,
+    totalServers: 42,
+    totalOrders: 231,
+    recentActivity: [
+      { name: "Minecraft Server #1", created_at: "2024-01-15", status: "running" },
+      { name: "CS2 Server", created_at: "2024-01-14", status: "stopped" },
+      { name: "Garry's Mod Server", created_at: "2024-01-13", status: "running" }
+    ]
+  };
 
-      const { data, error } = await supabase.functions.invoke('admin-operations', {
-        body: { action: 'get_dashboard_stats' }
-      });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user && userProfile?.role === 'admin',
-  });
-
-  const { data: nodes, isLoading: nodesLoading } = useQuery({
-    queryKey: ['admin-nodes'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('pelican-integration', {
-        body: { action: 'list_nodes' }
-      });
-
-      if (error) throw error;
-      return data?.data || [];
-    },
-    enabled: !!user && userProfile?.role === 'admin',
-  });
-
-  const { data: allServers, isLoading: serversLoading } = useQuery({
-    queryKey: ['admin-servers'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('admin-operations', {
-        body: { action: 'get_all_servers' }
-      });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user && userProfile?.role === 'admin',
-  });
-
-  const isLoading = statsLoading || nodesLoading || serversLoading;
+  const mockNodes = [
+    { id: 1, name: "Node Prague", fqdn: "node1.forpsi.com", maintenance_mode: false },
+    { id: 2, name: "Node Brno", fqdn: "node2.forpsi.com", maintenance_mode: false },
+    { id: 3, name: "Node Ostrava", fqdn: "node3.forpsi.com", maintenance_mode: true }
+  ];
 
   useEffect(() => {
     if (!user) {
@@ -100,16 +73,6 @@ const Admin = () => {
     );
   }
 
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="p-6">
-          <div className="text-center py-8">Loading admin data...</div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="p-6 space-y-6">
@@ -117,7 +80,7 @@ const Admin = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-            <p className="text-muted-foreground mt-1">System overview and management</p>
+            <p className="text-muted-foreground mt-1">System overview and management (Demo)</p>
           </div>
         </div>
 
@@ -128,7 +91,7 @@ const Admin = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Users</p>
                 <p className="text-3xl font-bold text-[hsl(var(--forpsi-cyan))]">
-                  {dashboardStats?.totalUsers || 0}
+                  {mockDashboardStats.totalUsers}
                 </p>
               </div>
               <Users className="w-8 h-8 text-[hsl(var(--forpsi-cyan))]" />
@@ -140,7 +103,7 @@ const Admin = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Servers</p>
                 <p className="text-3xl font-bold text-[hsl(var(--forpsi-orange))]">
-                  {dashboardStats?.totalServers || 0}
+                  {mockDashboardStats.totalServers}
                 </p>
               </div>
               <Server className="w-8 h-8 text-[hsl(var(--forpsi-orange))]" />
@@ -152,7 +115,7 @@ const Admin = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Available Nodes</p>
                 <p className="text-3xl font-bold text-[hsl(var(--forpsi-blue))]">
-                  {nodes?.length || 0}
+                  {mockNodes.length}
                 </p>
               </div>
               <Activity className="w-8 h-8 text-[hsl(var(--forpsi-blue))]" />
@@ -164,7 +127,7 @@ const Admin = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Orders</p>
                 <p className="text-3xl font-bold text-[hsl(var(--forpsi-green))]">
-                  {dashboardStats?.totalOrders || 0}
+                  {mockDashboardStats.totalOrders}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-[hsl(var(--forpsi-green))]" />
@@ -177,7 +140,7 @@ const Admin = () => {
           <div className="forpsi-card p-6">
             <h3 className="text-lg font-semibold mb-4 text-foreground">Recent Servers</h3>
             <div className="space-y-4">
-              {dashboardStats?.recentActivity?.map((server: any, index: number) => (
+              {mockDashboardStats.recentActivity.map((server, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-sidebar-accent rounded-lg">
                   <div>
                     <p className="font-medium text-foreground">{server.name}</p>
@@ -203,7 +166,7 @@ const Admin = () => {
           <div className="forpsi-card p-6">
             <h3 className="text-lg font-semibold mb-4 text-foreground">Available Nodes</h3>
             <div className="space-y-4">
-              {nodes?.slice(0, 5).map((node: any) => (
+              {mockNodes.slice(0, 5).map((node) => (
                 <div key={node.id} className="flex items-center justify-between p-3 bg-sidebar-accent rounded-lg">
                   <div>
                     <p className="font-medium text-foreground">{node.name}</p>

@@ -1,11 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ServerCreationModalProps {
@@ -15,8 +13,6 @@ interface ServerCreationModalProps {
 }
 
 export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: ServerCreationModalProps) => {
-  console.log('🔧 ServerCreationModal render - isOpen:', isOpen);
-  
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,177 +25,31 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
     location: "default"
   });
 
-  // Fetch available nodes with better error handling
-  const { data: nodes = [], isLoading: nodesLoading } = useQuery({
-    queryKey: ['nodes-for-creation'],
-    queryFn: async () => {
-      console.log('🔧 Fetching nodes for modal...');
-      try {
-        const { data, error } = await supabase.functions.invoke('pelican-integration', {
-          body: { action: 'list_nodes' }
-        });
-        console.log('🔧 Modal nodes response:', data);
-        console.log('🔧 Modal nodes error:', error);
-        
-        if (error) {
-          console.error('❌ Node fetch error:', error);
-          throw error;
-        }
-        
-        // Handle different response structures
-        const nodesList = data?.data || data || [];
-        console.log('🔧 Processed nodes list:', nodesList);
-        
-        // Ensure each node has proper id structure
-        return nodesList.map((node: any) => ({
-          ...node,
-          id: node.id || node.attributes?.id,
-          name: node.name || node.attributes?.name,
-          fqdn: node.fqdn || node.attributes?.fqdn
-        }));
-      } catch (error) {
-        console.error('❌ Failed to fetch nodes:', error);
-        return [];
-      }
-    },
-    enabled: isOpen,
-    retry: 2,
-    staleTime: 30000, // Cache for 30 seconds
-  });
+  // Mock data for demo
+  const mockNodes = [
+    { id: 1, name: "Node 1", fqdn: "node1.example.com" },
+    { id: 2, name: "Node 2", fqdn: "node2.example.com" },
+    { id: 3, name: "Node 3", fqdn: "node3.example.com" }
+  ];
 
-  // Fetch available nests with eggs (games) with fallback to direct eggs
-  const { data: nests = [], isLoading: nestsLoading } = useQuery({
-    queryKey: ['nests-for-creation'],
-    queryFn: async () => {
-      console.log('🥚 Fetching nests with eggs from Pelican...');
-      try {
-        const { data, error } = await supabase.functions.invoke('pelican-integration', {
-          body: { action: 'list_nests' }
-        });
-        console.log('🥚 Nests response:', data);
-        console.log('🥚 Nests error:', error);
-        if (error) throw error;
-        return data?.data || data || [];
-      } catch (error) {
-        console.warn('Failed to fetch nests, trying eggs directly:', error);
-        // Fallback to direct eggs endpoint
-        try {
-          const { data: eggsData, error: eggsError } = await supabase.functions.invoke('pelican-integration', {
-            body: { action: 'list_eggs' }
-          });
-          if (eggsError) throw eggsError;
-          console.log('🎮 Fallback eggs response:', eggsData);
-          // Transform eggs data to match nests structure
-          return [{
-            attributes: { name: 'Available Games' },
-            relationships: { eggs: { data: eggsData?.data || [] } }
-          }];
-        } catch (fallbackError) {
-          console.error('Both nests and eggs failed:', fallbackError);
-          return [];
-        }
-      }
-    },
-    enabled: isOpen,
-  });
-
-  // Extract all eggs from all nests
-  const eggs = useMemo(() => {
-    if (!nests) return [];
-    
-    const allEggs: any[] = [];
-    nests.forEach((nest: any) => {
-      if (nest.relationships?.eggs?.data) {
-        nest.relationships.eggs.data.forEach((egg: any) => {
-          allEggs.push({
-            ...egg,
-            nestName: nest.attributes.name // Add nest name for context
-          });
-        });
-      }
-    });
-    
-    console.log('🎮 All eggs extracted:', allEggs);
-    return allEggs;
-  }, [nests]);
+  const mockEggs = [
+    { id: 1, name: "Minecraft Java", nestName: "Minecraft" },
+    { id: 2, name: "Minecraft Bedrock", nestName: "Minecraft" },
+    { id: 3, name: "Counter-Strike 2", nestName: "Source Engine" },
+    { id: 4, name: "Garry's Mod", nestName: "Source Engine" }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 Form submit started');
-    console.log('🚀 Form data:', formData);
     setIsLoading(true);
 
     try {
-      // Get current user
-      console.log('🔑 Getting current user...');
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error('❌ User authentication failed:', userError);
-        throw new Error('User not authenticated');
-      }
-      console.log('✅ User authenticated:', user.id);
-
-      // First create server record in database
-      console.log('💾 Creating server record in database...');
-      const { data: newServer, error: dbError } = await supabase
-        .from('servers')
-        .insert({
-          user_id: user.id,
-          name: formData.name,
-          location: formData.location,
-          status: 'creating',
-          ram_mb: formData.memory,
-          cpu_pct: formData.cpu,
-          disk_mb: formData.disk,
-          node_id: formData.nodeId
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('❌ Database error:', dbError);
-        throw dbError;
-      }
-      console.log('✅ Server record created:', newServer);
-
-      // Then call Pelican integration to create the actual server
-      console.log('🐦 Calling create-server function...');
-      const { data, error } = await supabase.functions.invoke('create-server', {
-        body: {
-          order_id: 1, // We'll create a dummy order for now
-          egg_id: formData.eggId,
-          node_id: parseInt(formData.nodeId)
-        }
-      });
-
-      console.log('🐦 Create-server response:', data);
-      console.log('🐦 Create-server error:', error);
-
-      if (error) {
-        console.error('❌ Create-server error:', error);
-        // Update server status to failed
-        await supabase
-          .from('servers')
-          .update({ status: 'failed' })
-          .eq('id', newServer.id);
-        throw new Error(`Server creation failed: ${error.message || 'Unknown error'}`);
-      }
-
-      if (!data?.ok) {
-        console.error('❌ Create-server API error:', data);
-        // Update server status to failed
-        await supabase
-          .from('servers')
-          .update({ status: 'failed' })
-          .eq('id', newServer.id);
-        throw new Error(`Server creation failed: ${data?.error || 'Unknown error from create-server'}`);
-      }
-
-      console.log('✅ Server created successfully:', data);
+      // Mock server creation
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       toast({
         title: "Server Created", 
-        description: data.name ? `Server "${data.name}" is being created.` : "Your server is being created and will be available shortly.",
+        description: `Server "${formData.name}" is being created (demo).`,
       });
       
       onServerCreated();
@@ -216,8 +66,6 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
         location: "default"
       });
     } catch (error: any) {
-      console.error('💥 Server creation failed:', error);
-      console.error('💥 Error stack:', error.stack);
       toast({
         title: "Server Creation Failed",
         description: error.message || "Failed to create server. Please try again.",
@@ -257,20 +105,14 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                 required
               >
                 <SelectTrigger className="bg-background border-border">
-                  <SelectValue placeholder={nodesLoading ? "Loading nodes..." : "Select a node"} />
+                  <SelectValue placeholder="Select a node" />
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
-                  {nodes.map((node: any) => {
-                    const nodeId = node.id || node.attributes?.id;
-                    const nodeName = node.name || node.attributes?.name;
-                    const nodeFqdn = node.fqdn || node.attributes?.fqdn;
-                    
-                    return (
-                      <SelectItem key={nodeId} value={nodeId?.toString()} className="hover:bg-sidebar-accent">
-                        {nodeName} ({nodeFqdn})
-                      </SelectItem>
-                    );
-                  })}
+                  {mockNodes.map((node) => (
+                    <SelectItem key={node.id} value={node.id.toString()} className="hover:bg-sidebar-accent">
+                      {node.name} ({node.fqdn})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -283,12 +125,12 @@ export const ServerCreationModal = ({ isOpen, onClose, onServerCreated }: Server
                 required
               >
                 <SelectTrigger className="bg-background border-border">
-                  <SelectValue placeholder={nestsLoading ? "Loading games..." : "Select a game template"} />
+                  <SelectValue placeholder="Select a game template" />
                 </SelectTrigger>
                 <SelectContent className="bg-background border-border z-50">
-                  {eggs.map((egg: any) => (
-                    <SelectItem key={egg.id || egg.attributes?.id} value={(egg.id || egg.attributes?.id || '').toString()} className="hover:bg-sidebar-accent">
-                      {egg.nestName ? `${egg.nestName} - ${egg.attributes?.name || egg.name}` : (egg.attributes?.name || egg.name)}
+                  {mockEggs.map((egg) => (
+                    <SelectItem key={egg.id} value={egg.id.toString()} className="hover:bg-sidebar-accent">
+                      {egg.nestName} - {egg.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

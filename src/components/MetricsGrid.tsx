@@ -1,7 +1,4 @@
-
 import { Server, Activity, Users, HelpCircle, DollarSign } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface MetricsGridProps {
@@ -11,65 +8,19 @@ interface MetricsGridProps {
 export const MetricsGrid = ({ data }: MetricsGridProps) => {
   const { user, userProfile } = useAuth();
 
-  const { data: metricsData, isLoading } = useQuery({
-    queryKey: ['metrics-data'],
-    queryFn: async () => {
-      if (!user) return null;
-      
-      if (userProfile?.role === 'admin') {
-        // Admin sees system-wide metrics
-        const { data, error } = await supabase.functions.invoke('admin-operations', {
-          body: { action: 'get_metrics' }
-        });
-        
-        if (error) throw error;
-        return data;
-      } else {
-        // Regular users see their own metrics
-        const [serversResponse, ordersResponse, ticketsResponse] = await Promise.all([
-          supabase.from('servers').select('*').eq('user_id', user.id),
-          supabase.from('orders').select('*').eq('user_id', user.id),
-          supabase.from('tickets').select('*').eq('user_id', user.id).eq('status', 'open')
-        ]);
-
-        return {
-          realTime: {
-            totalServers: serversResponse.data?.length || 0,
-            activeUsers: 1,
-            totalOrders: ordersResponse.data?.length || 0,
-            totalRevenue: ordersResponse.data?.reduce((sum, order) => sum + (order.ram || 0), 0) || 0,
-            openTickets: ticketsResponse.data?.length || 0
-          }
-        };
-      }
-    },
-    enabled: !!user && !!userProfile,
-    refetchInterval: 30000,
-  });
-
-  const finalData = data || metricsData;
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1,2,3,4].map((i) => (
-          <div key={i} className="forpsi-card p-6 animate-pulse">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 bg-muted rounded-xl"></div>
-              <div className="w-8 h-4 bg-muted rounded"></div>
-            </div>
-            <div className="mt-4">
-              <div className="w-16 h-8 bg-muted rounded"></div>
-              <div className="w-20 h-4 bg-muted rounded mt-2"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  // Mock data for demo
+  const mockData = {
+    realTime: {
+      totalServers: 12,
+      activeUsers: 24,
+      totalOrders: 8,
+      totalRevenue: 1250.00,
+      openTickets: 3
+    }
+  };
 
   const isAdmin = userProfile?.role === 'admin';
-  const realTimeData = finalData?.realTime || {};
+  const realTimeData = data?.realTime || mockData.realTime;
 
   const metrics = [
     {

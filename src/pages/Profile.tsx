@@ -4,7 +4,7 @@ import { Layout } from "@/components/Layout";
 import { User, Mail, Calendar, Shield, Save, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
-import { supabase } from "@/integrations/supabase/client";
+// Mock profile page - no backend needed
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 

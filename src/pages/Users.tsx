@@ -4,8 +4,7 @@ import { Layout } from "@/components/Layout";
 import { Users as UsersIcon, Plus, Edit, Trash2, Shield, Key } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+// Mock users page - no backend needed
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserEditModal } from "@/components/UserEditModal";

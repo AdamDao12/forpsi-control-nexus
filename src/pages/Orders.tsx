@@ -4,8 +4,7 @@ import { Layout } from "@/components/Layout";
 import { ShoppingCart, Plus, Euro, Clock, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// Mock orders page - no backend needed
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
