@@ -1,10 +1,1 @@
 project_id = "unbvphckomexdatbqmnk"
-
-[functions.pelican-integration]
-verify_jwt = false
-
-[functions.create-server]
-verify_jwt = false
-
-[functions.create-order]
-verify_jwt = false
